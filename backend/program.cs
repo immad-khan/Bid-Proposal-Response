@@ -6,12 +6,12 @@ builder.Services.AddControllers();
 // ✅ HttpClient (built into .NET 10, no extra package needed)
 builder.Services.AddHttpClient();
 
-// ✅ CORS for React
+// ✅ CORS for React/Vercel
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
