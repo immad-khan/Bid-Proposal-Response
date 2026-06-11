@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 # 1. At the top of main.py, import your chunker tool:
 from services.chunking_service import create_parent_child_chunks
-from parser_rfp import parse_azure_blob_hybrid
+from services.parser_service import parse_azure_blob_hybrid
 
 logging.basicConfig(
     level=logging.INFO,
