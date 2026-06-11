@@ -9,8 +9,18 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - NEO4J_URI=bolt://neo4j:7687
+      - ELASTICSEARCH_HOST=elasticsearch
+      - REDIS_HOST=redis
+    depends_on:
+      - chromadb
+      - neo4j
+      - redis
+      - elasticsearch
 
-  backend:
+  net-api:
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -19,8 +29,10 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - PythonEngine:Url=http://ai_engine:8000
+      - ConnectionStrings:Redis=redis:6379
     depends_on:
       - ai_engine
+      - redis
 
   frontend:
     build:
@@ -31,4 +43,47 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:5000
     depends_on:
-      - backend
+      - net-api
+
+  chromadb:
+    build:
+      context: .
+      dockerfile: ./infrastructure/docker/chromadb.Dockerfile
+    ports:
+      - "8001:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+
+  neo4j:
+    build:
+      context: .
+      dockerfile: ./infrastructure/docker/neo4j.Dockerfile
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/password
+    volumes:
+      - neo4j_data:/data
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  elasticsearch:
+    build:
+      context: .
+      dockerfile: ./infrastructure/docker/elasticsearch.Dockerfile
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+volumes:
+  chromadb_data:
+  neo4j_data:
+  es_data:
