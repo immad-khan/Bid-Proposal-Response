@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ai_engine:
     build:
@@ -9,6 +7,7 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
+<<<<<<< HEAD
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
       - NEO4J_URI=bolt://neo4j:7687
@@ -19,6 +18,10 @@ services:
       - neo4j
       - redis
       - elasticsearch
+=======
+    networks:
+      - rfp-network
+>>>>>>> 76cbfc2 (updating docker files)
 
   net-api:
     build:
@@ -28,21 +31,31 @@ services:
       - "5000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+<<<<<<< HEAD
       - PythonEngine:Url=http://ai_engine:8000
       - ConnectionStrings:Redis=redis:6379
     depends_on:
       - ai_engine
       - redis
+=======
+      - PythonEngine__Url=http://ai_engine:8000 # ✅ Fixed: use __ not :
+      - AzureStorage__ConnectionString=${AZURE_STORAGE_CONNECTION_STRING}
+    depends_on:
+      - ai_engine
+    networks:
+      - rfp-network
+>>>>>>> 76cbfc2 (updating docker files)
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:5000 # ✅ Build arg
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:5000
     depends_on:
+<<<<<<< HEAD
       - net-api
 
   chromadb:
@@ -87,3 +100,12 @@ volumes:
   chromadb_data:
   neo4j_data:
   es_data:
+=======
+      - backend
+    networks:
+      - rfp-network
+
+networks:
+  rfp-network:
+    driver: bridge
+>>>>>>> 76cbfc2 (updating docker files)

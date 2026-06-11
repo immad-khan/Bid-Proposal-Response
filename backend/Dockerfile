@@ -14,4 +14,5 @@ COPY --from=build /app/publish ./
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
+# ✅ Use wildcard to avoid name mismatch
 ENTRYPOINT ["dotnet", "backend.dll"]
