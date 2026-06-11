@@ -31,11 +31,6 @@ jobs:
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/rfp-backend:latest
 
       - name: Build and Push AI Engine Image
-        if: ${{ hashFiles('ai_engine/Dockerfile') != '' }}
         run: |
           docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/rfp-ai-engine:latest ./ai_engine
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/rfp-ai-engine:latest
-
-      - name: Skip AI Engine Image Build (source not present)
-        if: ${{ hashFiles('ai_engine/Dockerfile') == '' }}
-        run: echo "Skipping AI Engine image build because ai_engine/Dockerfile was not found."
