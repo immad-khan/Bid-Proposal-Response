@@ -1,19 +1,19 @@
 # API Framework
-fastapi==0.109.0
-uvicorn==0.27.0
-pydantic==2.5.0
+fastapi
+uvicorn
+pydantic
 
 # HTTP Client
-httpx==0.26.0
+httpx
 
 # Azure Storage
-azure-storage-blob==12.19.0
+azure-storage-blob
 
 # PDF Parsing
-pdfplumber==0.10.3
+pdfplumber
 
-# ✅ Remove fixed version - let pip find compatible one
+# Document Layout Parser
 docling
 
 # Vector Database
-chromadb==0.4.22
+chromadb
