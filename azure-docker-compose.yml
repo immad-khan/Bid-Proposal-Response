@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  ai_engine:
+    image: rfppilotregistry.azurecr.io/rfp-ai-engine:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  backend:
+    image: rfppilotregistry.azurecr.io/rfp-backend:latest
+    ports:
+      - "80:8080" # Azure App Service expects the main app to answer on port 80
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - PythonEngine__Url=http://ai_engine:8000
+      - AzureStorage__ConnectionString=${AZURE_STORAGE_CONNECTION_STRING}
+    depends_on:
+      - ai_engine
