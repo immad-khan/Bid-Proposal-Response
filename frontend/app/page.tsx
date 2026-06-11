@@ -17,8 +17,9 @@ export default function Home() {
     formData.append('file', file);
 
     try {
-      // Pointing directly to your active .NET backend port 5282
-      const response = await fetch('http://localhost:5282/api/RfpUpload/upload', {
+      // Use NEXT_PUBLIC_API_URL if available (from docker-compose), otherwise fallback to local port
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5282';
+      const response = await fetch(`${apiUrl}/api/RfpUpload/upload`, {
         method: 'POST',
         body: formData,
       });
