@@ -1,0 +1,14 @@
+# API Framework
+fastapi==0.109.0
+uvicorn==0.27.0
+pydantic==2.5.0
+
+# HTTP Client
+httpx==0.26.0
+
+# Azure Storage
+azure-storage-blob==12.19.0
+
+# PDF Parsing
+pdfplumber==0.10.3
+docling==1.16.0
