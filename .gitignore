@@ -4,20 +4,35 @@ __pycache__/
 *.pyo
 *.pyd
 .env
+.env.*
 venv/
 *.egg-info/
 rfp_engine.log
+*.zip
+dist/
 
 # .NET
 bin/
 obj/
 *.user
+publish/
+appsettings.Development.json  
+*.pfx
 
 # Node / Next.js
 node_modules/
 .next/
 .env.local
+.env.production
+.env.development
 
 # General
 .DS_Store
 *.log
+*.tmp
+Thumbs.db
+
+# Azure / Secrets
+*.publishsettings
+ServiceConfiguration.*.cscfg
+local.settings.json
