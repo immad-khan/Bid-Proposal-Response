@@ -11,4 +11,9 @@ azure-storage-blob==12.19.0
 
 # PDF Parsing
 pdfplumber==0.10.3
-docling==1.16.0
+
+# ✅ Remove fixed version - let pip find compatible one
+docling
+
+# Vector Database
+chromadb==0.4.22
