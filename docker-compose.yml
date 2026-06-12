@@ -37,10 +37,19 @@ services:
     ports:
       - "5000:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - PythonEngine__Url=http://ai_engine:8000
       - ConnectionStrings__Redis=redis:6379
-      - AzureStorage__ConnectionString=${AZURE_STORAGE_CONNECTION_STRING}
+      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING}
+      - AZURE_BLOB_CONTAINER_NAME=${AZURE_BLOB_CONTAINER_NAME}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME}
+      - JWT__KEY=${JWT__KEY}
+      - JWT__ISSUER=${JWT__ISSUER}
+      - JWT__AUDIENCE=${JWT__AUDIENCE}
     depends_on:
       - ai_engine
       - redis

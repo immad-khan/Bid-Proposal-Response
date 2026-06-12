@@ -21,7 +21,7 @@ namespace BackendNet.Services
 
         public BlobStorageService(IConfiguration configuration)
         {
-            var connectionString = configuration["AzureStorage:ConnectionString"];
+            var connectionString = configuration["AZURE_STORAGE_CONNECTION_STRING"] ?? configuration["AzureStorage:ConnectionString"];
             if (!string.IsNullOrEmpty(connectionString) && connectionString != "YOUR_AZURE_STORAGE_CONNECTION_STRING_HERE" && connectionString != "your_azure_storage_connection_string_here")
             {
                 _blobServiceClient = new BlobServiceClient(connectionString);
@@ -36,7 +36,8 @@ namespace BackendNet.Services
                 return fakeUrl;
             }
 
-            var containerClient = _blobServiceClient.GetBlobContainerClient(ContainerName);
+            var containerName = Environment.GetEnvironmentVariable("AZURE_BLOB_CONTAINER_NAME") ?? ContainerName;
+            var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
             await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
 
             var uniqueFileName = $"{Guid.NewGuid()}_{fileName}";

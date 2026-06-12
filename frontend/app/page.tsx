@@ -122,27 +122,9 @@ export default function Home() {
         setActiveProjectId(data[0].id);
       }
     } catch (err) {
-      console.warn("Could not retrieve projects from .NET API. Mock collection loaded instead.", err);
-      const mockList: Project[] = [
-        {
-          id: 'nasa-rfp',
-          name: 'NASA Deep Space Communication System',
-          clientName: 'NASA Jet Propulsion Lab',
-          rfpBlobUrl: 'https://mockstorage.blob.core.windows.net/rfp-uploads/NASA_RFP.pdf',
-          createdAt: new Date().toISOString(),
-          status: 'Created'
-        },
-        {
-          id: 'dod-cloud',
-          name: 'Pentagon secure Cloud Migration',
-          clientName: 'US Department of Defense',
-          rfpBlobUrl: 'https://mockstorage.blob.core.windows.net/rfp-uploads/DOD_Cloud.pdf',
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          status: 'Processing'
-        }
-      ];
-      setProjects(mockList);
-      setActiveProjectId(mockList[0].id);
+      console.error("Failed to retrieve projects from API.", err);
+      // Removed mock fallback as per production requirements.
+      setProjects([]);
     }
   }, [activeProjectId]);
 
@@ -160,34 +142,8 @@ export default function Home() {
       const analysisData = await apiClient.getDetailedAnalysis(projectId);
       setAnalysis(analysisData);
     } catch (err) {
-      console.warn("Could not retrieve detailed analysis from API. Loading mock analysis.", err);
-      // Mock fallback
-      const project = projects.find(p => p.id === projectId);
-      const mockAnalysis = {
-        projectId,
-        projectName: project?.name || "RFP Project Response",
-        client: project?.clientName || "Federal Agency",
-        winProbability: projectId === 'nasa-rfp' ? 0.82 : projectId === 'dod-cloud' ? 0.55 : 0.25,
-        complianceScore: projectId === 'nasa-rfp' ? 0.88 : projectId === 'dod-cloud' ? 0.70 : 0.45,
-        goNoGoDecision: projectId === 'nasa-rfp' ? 'GO' : projectId === 'dod-cloud' ? 'GO' : 'NO-GO',
-        topFeatures: [
-          { featureName: "compliance_rate", value: projectId === 'nasa-rfp' ? 0.88 : 0.70, shapContribution: 0.15 },
-          { featureName: "tech_gap_count", value: projectId === 'nasa-rfp' ? 2 : 5, shapContribution: -0.05 },
-          { featureName: "budget_margin_delta", value: 0.25, shapContribution: 0.08 }
-        ],
-        complianceGaps: projectId === 'nasa-rfp' 
-          ? [
-              "Missing SOC 2 Type II attestation in Section 4.2",
-              "Under-defined SLA response time guarantees for Tier-3 incidents"
-            ] 
-          : [
-              "Security clearances for developers not specified in Section 2.1",
-              "Disaster recovery RTO exceeds the requested 4 hours maximum"
-            ],
-        rfpBudget: projectId === 'nasa-rfp' ? 1250000 : 2500000,
-        companyBaseCost: projectId === 'nasa-rfp' ? 937500 : 2100000
-      };
-      setAnalysis(mockAnalysis);
+      console.error("Failed to retrieve detailed analysis from API.", err);
+      setAnalysis(null);
     } finally {
       setIsAnalysisLoading(false);
     }

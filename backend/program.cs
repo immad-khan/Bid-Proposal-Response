@@ -76,107 +76,11 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// ✅ Auto-create database & Seed Mock Data
+// Database is assumed to be created via migrations in production.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     db.Database.EnsureCreated();
-
-    // Seed User
-    if (!db.Users.Any())
-    {
-        db.Users.AddRange(
-            new User { Id = "admin", Username = "admin", Email = "admin@example.com" },
-            new User { Id = "member1", Username = "jane_doe", Email = "jane@example.com" }
-        );
-        db.SaveChanges();
-    }
-
-    // Seed Projects
-    if (!db.Projects.Any())
-    {
-        var p1 = new Project
-        {
-            Id = "nasa-rfp",
-            Name = "NASA Deep Space Communication System",
-            ClientName = "NASA Jet Propulsion Lab",
-            SubmissionDeadline = DateTime.UtcNow.AddDays(30),
-            SimilarPastWinRate = 0.85,
-            OwnerId = "admin"
-        };
-        p1.Members.Add(new ProjectMember { ProjectId = "nasa-rfp", UserId = "admin" });
-        p1.Members.Add(new ProjectMember { ProjectId = "nasa-rfp", UserId = "member1" });
-
-        var p2 = new Project
-        {
-            Id = "dod-cloud",
-            Name = "Pentagon secure Cloud Migration",
-            ClientName = "US Department of Defense",
-            SubmissionDeadline = DateTime.UtcNow.AddDays(15),
-            SimilarPastWinRate = 0.55,
-            OwnerId = "admin"
-        };
-        p2.Members.Add(new ProjectMember { ProjectId = "dod-cloud", UserId = "admin" });
-
-        var p3 = new Project
-        {
-            Id = "who-system",
-            Name = "Global Health Informatics Upgrade",
-            ClientName = "World Health Organization",
-            SubmissionDeadline = DateTime.UtcNow.AddDays(45),
-            SimilarPastWinRate = 0.25,
-            OwnerId = "admin"
-        };
-        p3.Members.Add(new ProjectMember { ProjectId = "who-system", UserId = "admin" });
-
-        db.Projects.AddRange(p1, p2, p3);
-        db.SaveChanges();
-    }
-
-    // Seed Workspaces
-    if (!db.Workspaces.Any())
-    {
-        var w1 = new Workspace
-        {
-            Id = "nasa-rfp", // matches Project Id for routing convenience
-            Name = "NASA Deep Space Communication System Workspace",
-            Description = "Collaboration workspace for RFP engineering response to NASA JPL.",
-            OwnerId = "admin",
-            CreatedAt = DateTime.UtcNow.AddDays(-2),
-            UpdatedAt = DateTime.UtcNow
-        };
-        
-        w1.Members.Add(new WorkspaceMember { WorkspaceId = "nasa-rfp", UserId = "admin", Role = "Admin" });
-        w1.Members.Add(new WorkspaceMember { WorkspaceId = "nasa-rfp", UserId = "member1", Role = "Editor" });
-        
-        var jsonVal1 = "[{\"type\":\"paragraph\",\"children\":[{\"text\":\"Draft v1: Developing high-efficiency deep space transceiver. Design limits power consumption to 20W.\"}]}]";
-        var jsonVal2 = "[{\"type\":\"paragraph\",\"children\":[{\"text\":\"Draft v2: NASA Deep Space Communication System Proposal. Section 1: Introduction. We propose a cognitive radio system operating in the Ka-band. Performance metrics exceed JPL specifications by 15%.\"}]}]";
-
-        w1.Versions.Add(new ProposalVersion
-        {
-            Id = Guid.NewGuid().ToString(),
-            WorkspaceId = "nasa-rfp",
-            VersionNumber = 1,
-            Content = jsonVal1,
-            CreatedBy = "admin",
-            CreatedAt = DateTime.UtcNow.AddDays(-2),
-            Comment = "Initial layout and technical summary"
-        });
-
-        w1.Versions.Add(new ProposalVersion
-        {
-            Id = Guid.NewGuid().ToString(),
-            WorkspaceId = "nasa-rfp",
-            VersionNumber = 2,
-            Content = jsonVal2,
-            CreatedBy = "member1",
-            CreatedAt = DateTime.UtcNow.AddDays(-1),
-            Comment = "Added section 1.1 with Ka-band specifications"
-        });
-
-        db.Workspaces.Add(w1);
-        db.SaveChanges();
-    }
 }
 
 // ✅ Swagger enabled in all environments for testing

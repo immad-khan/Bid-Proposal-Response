@@ -16,56 +16,17 @@ interface RFPProject {
   shapData: FeatureImpact[];
 }
 
-// Mock data simulating the backend integration from Module 5
-const mockProjects: RFPProject[] = [
-  {
-    id: 'proj-101',
-    name: 'US Air Force Cloud Migration RFP',
-    status: 'Completed',
-    budget: 1500000,
-    winProbability: 0.82,
-    decision: 'GO',
-    shapData: [
-      { feature: 'compliance_rate', value: 1.0, attribution: 0.15 },
-      { feature: 'tech_gap_count', value: 0, attribution: 0.08 },
-      { feature: 'budget_margin_delta', value: 0.35, attribution: 0.12 },
-    ]
-  },
-  {
-    id: 'proj-102',
-    name: 'State Dept Cybersecurity Audit',
-    status: 'Drafting',
-    budget: 450000,
-    winProbability: 0.31,
-    decision: 'NO-GO',
-    shapData: [
-      { feature: 'compliance_rate', value: 0.75, attribution: -0.22 },
-      { feature: 'tech_gap_count', value: 4, attribution: -0.18 },
-      { feature: 'budget_margin_delta', value: -0.1, attribution: -0.05 },
-    ]
-  },
-  {
-    id: 'proj-103',
-    name: 'NHS Patient Portal Upgrade',
-    status: 'Ingestion',
-    budget: 850000,
-    winProbability: 0.68,
-    decision: 'GO',
-    shapData: [
-      { feature: 'compliance_rate', value: 0.92, attribution: 0.10 },
-      { feature: 'tech_gap_count', value: 1, attribution: 0.02 },
-      { feature: 'budget_margin_delta', value: 0.15, attribution: 0.06 },
-    ]
-  }
-];
-
 export default function WinProbabilityDashboard() {
   const [activeProject, setActiveProject] = useState<RFPProject | null>(null);
+  const [projects, setProjects] = useState<RFPProject[]>([]);
+
+  // Note: For live Azure deployment, this should fetch from your live /api/projects endpoint
+  // e.g. useEffect(() => { fetchProjects().then(setProjects); }, []);
 
   const stats = {
-    ingestion: mockProjects.filter(p => p.status === 'Ingestion').length,
-    drafting: mockProjects.filter(p => p.status === 'Drafting').length,
-    goRevenue: mockProjects.filter(p => p.decision === 'GO').reduce((acc, p) => acc + p.budget, 0),
+    ingestion: projects.filter(p => p.status === 'Ingestion').length,
+    drafting: projects.filter(p => p.status === 'Drafting').length,
+    goRevenue: projects.filter(p => p.decision === 'GO').reduce((acc, p) => acc + p.budget, 0),
   };
 
   return (
@@ -114,31 +75,35 @@ export default function WinProbabilityDashboard() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-lg shadow-black/50 flex flex-col h-[500px]">
             <h3 className="text-lg font-semibold text-zinc-200 mb-4">RFP Pipeline</h3>
             <div className="flex-1 overflow-y-auto pr-2 space-y-3">
-              {mockProjects.map(proj => (
-                <div 
-                  key={proj.id}
-                  onClick={() => setActiveProject(proj)}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                    activeProject?.id === proj.id 
-                      ? 'bg-zinc-800 border-cyan-500/50 shadow-md shadow-cyan-900/20' 
-                      : 'bg-zinc-950/50 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/80'
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-medium text-zinc-200 text-sm">{proj.name}</h4>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wider ${
-                      proj.decision === 'GO' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800' :
-                      'bg-rose-900/50 text-rose-400 border border-rose-800'
-                    }`}>
-                      {proj.decision}
-                    </span>
+              {projects.length === 0 ? (
+                <div className="text-zinc-500 text-sm text-center mt-10">No projects loaded.</div>
+              ) : (
+                projects.map(proj => (
+                  <div 
+                    key={proj.id}
+                    onClick={() => setActiveProject(proj)}
+                    className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                      activeProject?.id === proj.id 
+                        ? 'bg-zinc-800 border-cyan-500/50 shadow-md shadow-cyan-900/20' 
+                        : 'bg-zinc-950/50 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/80'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-medium text-zinc-200 text-sm">{proj.name}</h4>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wider ${
+                        proj.decision === 'GO' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800' :
+                        'bg-rose-900/50 text-rose-400 border border-rose-800'
+                      }`}>
+                        {proj.decision}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-zinc-500">
+                      <span>Status: <span className="text-zinc-300">{proj.status}</span></span>
+                      <span>Win Prob: <span className={proj.winProbability >= 0.65 ? 'text-emerald-400' : 'text-rose-400'}>{(proj.winProbability * 100).toFixed(0)}%</span></span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center text-xs text-zinc-500">
-                    <span>Status: <span className="text-zinc-300">{proj.status}</span></span>
-                    <span>Win Prob: <span className={proj.winProbability >= 0.65 ? 'text-emerald-400' : 'text-rose-400'}>{(proj.winProbability * 100).toFixed(0)}%</span></span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
