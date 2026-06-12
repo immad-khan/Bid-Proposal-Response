@@ -13,7 +13,6 @@ azure-storage-blob
 # PDF Parsing
 pdfplumber==0.10.3
 docling==1.6.3
-docling-parse==0.2.0
 
 # Vector Database
 qdrant-client==1.7.0
