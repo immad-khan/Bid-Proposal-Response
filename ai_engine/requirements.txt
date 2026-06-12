@@ -14,7 +14,7 @@ azure-storage-blob
 pdfplumber==0.10.3
 
 # Vector Database
-qdrant-client==1.7.0
+qdrant-client>=1.7.1
 
 # Embeddings & Reranking
 sentence-transformers==2.3.1
