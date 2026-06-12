@@ -83,7 +83,7 @@ async def process_rfp_background(job: RfpJob):
         })
         logger.info(f"[JOB DONE] {job.jobId} processed through hybrid chunking stack.")
 
-     except Exception as e:
+    except Exception as e:
         logger.error(f"[JOB FAILED] {job.jobId} - Error: {str(e)}")
         job_store[job.jobId].update({
             "status": "failed",
