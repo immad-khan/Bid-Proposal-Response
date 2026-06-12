@@ -1,0 +1,163 @@
+<mxfile host="Electron" modified="2026-06-12T19:30:00.000Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/21.6.8 Chrome/114.0.5735.289 Electron/25.6.0 Safari/537.36" version="21.6.8" type="device">
+  <diagram id="RfpArchitectureDiagram" name="Detailed RFP AI Engine Architecture">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <!-- Layer 0 -->
+        <mxCell id="0" />
+        <!-- Layer 1 -->
+        <mxCell id="1" parent="0" />
+
+        <!-- ────────────────────────────────────────────── -->
+        <!-- GROUP 1: FRONTEND PRESENTATION LAYER           -->
+        <!-- ────────────────────────────────────────────── -->
+        <mxCell id="group_frontend" value="Frontend Presentation Layer (Next.js &amp; React)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D5DB;fontStyle=1;fontSize=14;align=center;startSize=40;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="20" y="40" width="280" height="540" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="fe_ui" value="&lt;b&gt;Next.js App UI (page.tsx)&lt;/b&gt;&lt;br/&gt;Home view &amp; conditional tabs&lt;br/&gt;(Upload Console, Ingestion Console)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#3B82F6;strokeWidth=2;fontSize=12;" parent="group_frontend" vertex="1">
+          <mxGeometry x="20" y="60" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fe_slate" value="&lt;b&gt;Inline Slate.js Editor&lt;/b&gt;&lt;br/&gt;Rich text editor for workspace drafts&lt;br/&gt;with local auto-save events" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#3B82F6;fontSize=12;" parent="group_frontend" vertex="1">
+          <mxGeometry x="20" y="160" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fe_dashboard" value="&lt;b&gt;Win Probability Dashboard&lt;/b&gt;&lt;br/&gt;Recharts graphics for win probabilities&lt;br/&gt;and SHAP explainability indicators" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#3B82F6;fontSize=12;" parent="group_frontend" vertex="1">
+          <mxGeometry x="20" y="260" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fe_diff" value="&lt;b&gt;Version Diff Visualizer&lt;/b&gt;&lt;br/&gt;Highlights green additions / red deletions&lt;br/&gt;between selected version pairs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#3B82F6;fontSize=12;" parent="group_frontend" vertex="1">
+          <mxGeometry x="20" y="360" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fe_apiclient" value="&lt;b&gt;TypeScript API Client&lt;/b&gt;&lt;br/&gt;Centralized HTTP fetch provider wrapper&lt;br/&gt;with local token headers storage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontSize=12;" parent="group_frontend" vertex="1">
+          <mxGeometry x="20" y="460" width="240" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Internal Connections Frontend -->
+        <mxCell id="edge_ui_apiclient" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3B82F6;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="group_frontend" source="fe_ui" target="fe_apiclient" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge_slate_apiclient" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3B82F6;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="group_frontend" source="fe_slate" target="fe_apiclient" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ────────────────────────────────────────────── -->
+        <!-- GROUP 2: BACKEND ORCHESTRATION LAYER (.NET 10) -->
+        <!-- ────────────────────────────────────────────── -->
+        <mxCell id="group_backend" value="Backend API &amp; Orchestration (.NET 10)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D5DB;fontStyle=1;fontSize=14;align=center;startSize=40;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="340" y="40" width="300" height="540" as="geometry" />
+        </mxCell>
+
+        <mxCell id="be_controllers" value="&lt;b&gt;API Controllers&lt;/b&gt;&lt;br/&gt;Auth, Projects, Workspace, Dashboard&lt;br/&gt;Exposes REST endpoints &amp; handles RBAC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#10B981;strokeWidth=2;fontSize=12;" parent="group_backend" vertex="1">
+          <mxGeometry x="30" y="60" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="be_services" value="&lt;b&gt;Core Logic Services&lt;/b&gt;&lt;br/&gt;WorkspaceService &amp; DashboardService&lt;br/&gt;Integrates algorithms &amp; invites" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#10B981;fontSize=12;" parent="group_backend" vertex="1">
+          <mxGeometry x="30" y="160" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="be_efcore" value="&lt;b&gt;Entity Framework Core 10&lt;/b&gt;&lt;br/&gt;ApplicationDbContext mappings &amp;&lt;br/&gt;LINQ persistence logic queries" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#10B981;fontSize=12;" parent="group_backend" vertex="1">
+          <mxGeometry x="30" y="260" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="be_db" value="&lt;b&gt;Database Persistence&lt;/b&gt;&lt;br/&gt;SQLite (Dev) / PostgreSQL (Prod)&lt;br/&gt;Stores projects, members, versions" style="shape=datastore;whiteSpace=wrap;html=1;fillColor=#D1FAE5;strokeColor=#059669;fontSize=12;" parent="group_backend" vertex="1">
+          <mxGeometry x="60" y="360" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="be_helpers" value="&lt;b&gt;Helpers (DocGen &amp; Storage)&lt;/b&gt;&lt;br/&gt;DocumentGenerator (PDF/Docx Export)&lt;br/&gt;BlobStorageService upload provider" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#10B981;fontSize=12;" parent="group_backend" vertex="1">
+          <mxGeometry x="30" y="460" width="240" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Internal Connections Backend -->
+        <mxCell id="edge_controllers_services" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10B981;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="group_backend" source="be_controllers" target="be_services" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge_services_ef" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10B981;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="group_backend" source="be_services" target="be_efcore" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge_ef_db" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10B981;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="group_backend" source="be_efcore" target="be_db" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge_services_helpers" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10B981;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="group_backend" source="be_services" target="be_helpers" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array points="15,195; 15,490" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ────────────────────────────────────────────── -->
+        <!-- GROUP 3: AI ENGINE & DATA PROCESSING LAYER      -->
+        <!-- ────────────────────────────────────────────── -->
+        <mxCell id="group_ai" value="FastAPI AI Engine (Python)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D5DB;fontStyle=1;fontSize=14;align=center;startSize=40;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="680" y="40" width="380" height="540" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ai_fastapi" value="&lt;b&gt;FastAPI Routes (main.py)&lt;/b&gt;&lt;br/&gt;compliance, go-nogo, evaluate-rfp, process-rfp&lt;br/&gt;Exposes async Python capabilities" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#F97316;strokeWidth=2;fontSize=12;" parent="group_ai" vertex="1">
+          <mxGeometry x="30" y="60" width="320" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ai_parser" value="&lt;b&gt;Ingestion: Parser &amp; Chunker&lt;/b&gt;&lt;br/&gt;Docling + PDFPlumber Hybrid Parser &lt;br/&gt;&amp; Hierarchical Parent-Child Chunking" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#F97316;fontSize=12;" parent="group_ai" vertex="1">
+          <mxGeometry x="30" y="160" width="320" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ai_dbs" value="&lt;b&gt;Knowledge Retrieval &amp; Graph Indexes&lt;/b&gt;&lt;br/&gt;Qdrant (Vectors) | BM25 (Text) | Neo4j (Entities)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#F97316;fontSize=12;" parent="group_ai" vertex="1">
+          <mxGeometry x="30" y="250" width="320" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ai_swarm" value="&lt;b&gt;LangGraph Swarm Agent Network&lt;/b&gt;&lt;br/&gt;Planner → Writer → Critic/Judge → Gatekeeper" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#F97316;fontSize=12;" parent="group_ai" vertex="1">
+          <mxGeometry x="30" y="340" width="320" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ai_ml" value="&lt;b&gt;Go/No-Go ML Predictor &amp; Explainer&lt;/b&gt;&lt;br/&gt;Random Forest Classifier &amp; SHAP attribution values" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#F97316;fontSize=12;" parent="group_ai" vertex="1">
+          <mxGeometry x="30" y="440" width="320" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Internal Connections AI Engine -->
+        <mxCell id="edge_fastapi_parser" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F97316;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="group_ai" source="ai_fastapi" target="ai_parser" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge_parser_dbs" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F97316;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="group_ai" source="ai_parser" target="ai_dbs" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge_fastapi_swarm" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F97316;exitX=0.8;exitY=1;exitDx=0;exitDy=0;entryX=0.8;entryY=0;entryDx=0;entryDy=0;" parent="group_ai" source="ai_fastapi" target="ai_swarm" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array points="286,140; 286,340" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge_fastapi_ml" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F97316;exitX=0.9;exitY=1;exitDx=0;exitDy=0;entryX=0.9;entryY=0;entryDx=0;entryDy=0;" parent="group_ai" source="ai_fastapi" target="ai_ml" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array points="318,150; 318,440" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ────────────────────────────────────────────── -->
+        <!-- EXTERNAL BRIDGES BETWEEN GROUPS                 -->
+        <!-- ────────────────────────────────────────────── -->
+        
+        <!-- Frontend to Backend -->
+        <mxCell id="edge_apiclient_controllers" value="HTTPS Calls / JWT" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#1D4ED8;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="fe_apiclient" target="be_controllers" edge="1">
+          <mxGeometry x="-0.33" y="15" relative="1" as="geometry">
+            <Array points="320,530; 320,135" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Backend to AI Engine -->
+        <mxCell id="edge_backend_ai" value="Proxy Requests / JSON" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#059669;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="be_services" target="ai_fastapi" edge="1">
+          <mxGeometry x="-0.15" y="-15" relative="1" as="geometry">
+            <Array points="660,235; 660,135" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
