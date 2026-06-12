@@ -8,6 +8,7 @@ import logging
 from typing import Dict, Any, List
 
 from agents.state import AgentState
+from services.compliance_matrix import ComplianceMatrixService
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,21 @@ class PlannerAgent:
             "total_sections": len(requirements_checklist),
             "version": "1.0",
         }
+
+        # ── Step 4: Push to Neo4j Compliance Graph ──
+        try:
+            neo4j = ComplianceMatrixService()
+            for req in requirements_checklist:
+                neo4j.create_requirement_node(
+                    requirement_id=req["id"],
+                    section_path=req["section"],
+                    description=req["requirement_summary"],
+                    is_mandatory=req.get("compliance_type") == "mandatory"
+                )
+            neo4j.close()
+            logger.info("PlannerAgent: Pushed requirements to Neo4j successfully.")
+        except Exception as e:
+            logger.warning(f"PlannerAgent: Failed to push to Neo4j - {e}")
 
         logger.info(f"PlannerAgent: Plan complete — {len(requirements_checklist)} requirements identified.")
         return {"plan": plan_output, "status": "Planning completed."}

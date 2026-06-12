@@ -8,6 +8,7 @@ import logging
 from typing import Dict, Any, List
 
 from agents.state import AgentState
+from services.compliance_matrix import ComplianceMatrixService
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +142,35 @@ class GatekeeperAgent:
             "issues_found": sum(1 for r in gatekeeper_log if not r.get("passed", True)),
             "checks": gatekeeper_log,
         })
+
+        # ── Push to Neo4j Compliance Graph ──
+        try:
+            neo4j = ComplianceMatrixService()
+            for check in gatekeeper_log:
+                req_id = check["req_id"]
+                section_id = f"proposal_{req_id}"
+                
+                # We save the proposal node and link it to the requirement
+                neo4j.create_proposal_section_node(
+                    section_id=section_id,
+                    title=f"Draft for {req_id}",
+                    content_preview=drafts.get(req_id, "")[:500]
+                )
+                
+                status = "COMPLIANT" if check.get("passed") else "NON_COMPLIANT"
+                evidence = "; ".join(check.get("issues", [])) if not check.get("passed") else "Gatekeeper verification passed."
+                
+                neo4j.link_compliance(
+                    proposal_section_id=section_id,
+                    requirement_id=req_id,
+                    status=status,
+                    evidence=evidence,
+                    score=check.get("compliance_score", 1.0)
+                )
+            neo4j.close()
+            logger.info("GatekeeperAgent: Pushed compliance links to Neo4j successfully.")
+        except Exception as e:
+            logger.warning(f"GatekeeperAgent: Failed to push to Neo4j - {e}")
 
         status = (
             "Gatekeeper: All checks passed."
