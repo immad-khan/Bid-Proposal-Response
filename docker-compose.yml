@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ai_engine:
     build:
@@ -18,6 +16,8 @@ services:
       - neo4j
       - redis
       - elasticsearch
+    networks:
+      - rfp-network
 
   net-api:
     build:
@@ -27,22 +27,27 @@ services:
       - "5000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - PythonEngine:Url=http://ai_engine:8000
-      - ConnectionStrings:Redis=redis:6379
+      - PythonEngine__Url=http://ai_engine:8000
+      - ConnectionStrings__Redis=redis:6379
+      - AzureStorage__ConnectionString=${AZURE_STORAGE_CONNECTION_STRING}
     depends_on:
       - ai_engine
       - redis
+    networks:
+      - rfp-network
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:5000
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:5000
     depends_on:
       - net-api
+    networks:
+      - rfp-network
 
   neo4j:
     build:
@@ -55,11 +60,15 @@ services:
       - NEO4J_AUTH=neo4j/password
     volumes:
       - neo4j_data:/data
+    networks:
+      - rfp-network
 
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
+    networks:
+      - rfp-network
 
   elasticsearch:
     build:
@@ -72,7 +81,13 @@ services:
       - xpack.security.enabled=false
     volumes:
       - es_data:/usr/share/elasticsearch/data
+    networks:
+      - rfp-network
 
 volumes:
   neo4j_data:
   es_data:
+
+networks:
+  rfp-network:
+    driver: bridge

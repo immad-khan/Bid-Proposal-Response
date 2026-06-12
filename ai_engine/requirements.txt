@@ -5,10 +5,10 @@ pydantic==2.5.0
 python-dotenv==1.0.0
 
 # HTTP Client
-httpx==0.26.0
+httpx
 
 # Azure Storage
-azure-storage-blob==12.19.0
+azure-storage-blob
 
 # PDF Parsing
 pdfplumber==0.10.3

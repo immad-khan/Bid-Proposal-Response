@@ -10,7 +10,7 @@ load_dotenv()
 
 # 1. At the top of main.py, import your chunker tool:
 from services.chunking_service import create_parent_child_chunks
-from parser_rfp import parse_azure_blob_hybrid
+from services.parser_service import parse_azure_blob_hybrid
 from routes import parsing_router, compliance_router, proposal_router
 
 logging.basicConfig(
@@ -83,14 +83,13 @@ async def process_rfp_background(job: RfpJob):
         })
         logger.info(f"[JOB DONE] {job.jobId} processed through hybrid chunking stack.")
 
-    except Exception as e:
+     except Exception as e:
         logger.error(f"[JOB FAILED] {job.jobId} - Error: {str(e)}")
         job_store[job.jobId].update({
             "status": "failed",
             "error": str(e),
             "updated_at": datetime.utcnow().isoformat()
         })
-
 
 @app.get("/")
 async def root():

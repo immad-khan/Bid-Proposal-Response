@@ -11,13 +11,12 @@ builder.Services.AddSingleton<BackendNet.Services.IProjectManagementService, Bac
 // ✅ HttpClient (built into .NET 10, no extra package needed)
 builder.Services.AddHttpClient();
 
-
-// ✅ CORS for React
+// ✅ CORS for React/Vercel
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -35,11 +34,12 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// ✅ Swagger enabled in all environments for testing
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// ✅ Root health check endpoint
+app.MapGet("/", () => new { service = "RFP Backend API", status = "running", swagger = "/swagger" });
 
 // ✅ CORS must be before MapControllers
 app.UseCors("AllowReactApp");
