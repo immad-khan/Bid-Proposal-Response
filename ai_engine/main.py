@@ -53,6 +53,7 @@ app = FastAPI(
 app.include_router(parsing_router)
 app.include_router(compliance_router)
 app.include_router(proposal_router)
+app.include_router(evaluate_rfp_router)
 
 
 job_store: Dict[str, dict] = {}
