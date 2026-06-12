@@ -6,7 +6,12 @@ from fastapi import APIRouter, HTTPException
 from schemas.rfp import RFPParseRequest
 from services.parser_service import parse_azure_blob_hybrid
 from services.chunking_service import process_markdown_pipeline, prepare_for_vector_db
+from services.extractor_service import ExtractionService
 import logging
+from pydantic import BaseModel
+
+class ExtractionRequest(BaseModel):
+    rfpText: str
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/parsing", tags=["parsing"])
@@ -48,4 +53,19 @@ async def parse_document(request: RFPParseRequest):
         }
     except Exception as e:
         logger.error(f"Error during parsing endpoint execution: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/extract")
+async def extract_intelligence(request: ExtractionRequest):
+    """
+    Node 2.0: NER & Schema Extraction
+    Extracts key dates, verbs, KPIs, budget, and compliance standards.
+    Returns the structured JSON preview.
+    """
+    try:
+        extractor = ExtractionService()
+        result = extractor.extract_intelligence(request.rfpText)
+        return {"status": "success", "data": result}
+    except Exception as e:
+        logger.error(f"Extraction route failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
