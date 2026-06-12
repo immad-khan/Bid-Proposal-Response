@@ -25,59 +25,70 @@ class BM25Index:
     """
     BM25 Wrapper for keyword-based search over proposal and RFP chunks.
     Uses rank_bm25.BM25Okapi for proper TF-IDF-style BM25 scoring.
+    Supports multiple collections.
     """
 
     def __init__(self):
-        self.corpus_tokens: List[List[str]] = []
-        self.documents: List[Dict[str, Any]] = []
-        self.bm25: BM25Okapi | None = None
+        # Maps collection_name -> {"documents": [...], "bm25": BM25Okapi}
+        self.collections: Dict[str, Dict[str, Any]] = {}
 
-    def index_documents(self, documents: List[Dict[str, Any]]):
+    def index_documents(self, documents: List[Dict[str, Any]], collection_name: str = "default"):
         """
         Build the BM25 inverted index from a list of document dicts.
         Each document should have 'text_for_embedding' or 'original_text'.
 
         Args:
-            documents: List of chunk dicts from chunking_service.prepare_for_vector_db().
+            documents: List of chunk dicts.
+            collection_name: The name of the collection to index into.
         """
-        logger.info(f"BM25Index: Indexing {len(documents)} documents.")
-        self.documents = documents
+        logger.info(f"BM25Index: Indexing {len(documents)} documents into '{collection_name}'.")
 
-        self.corpus_tokens = [
+        corpus_tokens = [
             _tokenize(doc.get("text_for_embedding", doc.get("original_text", "")))
             for doc in documents
         ]
 
-        self.bm25 = BM25Okapi(self.corpus_tokens)
-        logger.info(f"BM25Index: Index built. Vocab coverage across {len(self.corpus_tokens)} docs.")
+        bm25 = BM25Okapi(corpus_tokens)
+        
+        self.collections[collection_name] = {
+            "documents": documents,
+            "bm25": bm25
+        }
+        logger.info(f"BM25Index: Index built for '{collection_name}'. Vocab coverage across {len(corpus_tokens)} docs.")
 
-    def search(self, query: str, top_n: int = 10) -> List[Dict[str, Any]]:
+    def search(self, query: str, collection_name: str = "default", top_n: int = 10) -> List[Dict[str, Any]]:
         """
         Perform BM25 keyword search over the indexed corpus.
 
         Args:
             query: The search query string.
+            collection_name: The name of the collection to search.
             top_n: Number of top results to return.
 
         Returns:
-            List of document dicts sorted by descending BM25 score,
-            each augmented with a 'bm25_score' key.
+            List of document dicts sorted by descending BM25 score.
         """
-        if not self.bm25 or not self.documents:
-            logger.warning("BM25Index: search() called before index_documents(). Returning empty.")
+        collection = self.collections.get(collection_name)
+        if not collection:
+            logger.warning(f"BM25Index: search() called for unknown collection '{collection_name}'. Returning empty.")
             return []
 
-        query_tokens = _tokenize(query)
-        logger.info(f"BM25Index: Searching for tokens: {query_tokens[:10]}...")
+        bm25 = collection["bm25"]
+        documents = collection["documents"]
 
-        scores = self.bm25.get_scores(query_tokens)
+        query_tokens = _tokenize(query)
+        logger.info(f"BM25Index: Searching '{collection_name}' for tokens: {query_tokens[:10]}...")
+
+        scores = bm25.get_scores(query_tokens)
 
         # Pair each document with its BM25 score and sort descending
-        scored_docs = list(zip(self.documents, scores))
+        scored_docs = list(zip(documents, scores))
         scored_docs.sort(key=lambda x: x[1], reverse=True)
 
         results = []
         for doc, score in scored_docs[:top_n]:
+            if score <= 0:
+                continue
             result = dict(doc)  # shallow copy
             result["bm25_score"] = float(score)
             results.append(result)

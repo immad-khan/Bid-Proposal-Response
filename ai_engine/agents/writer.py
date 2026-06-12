@@ -90,7 +90,8 @@ class WriterAgent:
             logger.info(f"WriterAgent: Drafting [{req_id}] — {section_name}")
 
             # ── Step 1: Retrieve supporting evidence ──
-            collection_name = state.get("collection_name", "rfp_chunks")
+            # Query the pre-loaded capability library instead of the incoming RFP chunks
+            collection_name = "capability_library"
             evidence_text = self._retrieve_evidence(requirement_summary, collection_name)
 
             if self.llm_client:

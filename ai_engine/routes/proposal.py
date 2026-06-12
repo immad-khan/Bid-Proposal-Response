@@ -47,7 +47,7 @@ async def generate_proposal(request: ProposalGenerationRequest):
                 logger.warning(f"Failed to upsert to Qdrant: {e}")
 
         if retrieval.bm25_index:
-            retrieval.bm25_index.index_documents(docs_to_index)
+            retrieval.bm25_index.index_documents(docs_to_index, collection_name=collection_name)
 
         # ── Step 3: Run the Compiled LangGraph Workflow ──
         initial_state = {

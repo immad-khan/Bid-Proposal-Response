@@ -44,6 +44,31 @@ def get_retrieval_service() -> RetrievalService:
         vector_store = VectorStore()
         _bm25_index = BM25Index()
         reranker = Reranker()
+        
+        # Try to pre-load capability_library into BM25 from Qdrant
+        try:
+            # Check if collection exists
+            collections = vector_store.client.get_collections().collections
+            if any(c.name == "capability_library" for c in collections):
+                # Scroll points to build the BM25 index
+                points, _ = vector_store.client.scroll(
+                    collection_name="capability_library", 
+                    limit=1000, 
+                    with_payload=True
+                )
+                if points:
+                    docs = []
+                    for pt in points:
+                        docs.append({
+                            "id": str(pt.id),
+                            "text_for_embedding": pt.payload.get("text", ""),
+                            "original_text": pt.payload.get("original_text", ""),
+                            "metadata": {k: v for k, v in pt.payload.items() if k not in ("text", "original_text")}
+                        })
+                    _bm25_index.index_documents(docs, collection_name="capability_library")
+        except Exception as e:
+            logger.warning(f"Could not pre-load capability_library into BM25: {e}")
+            
         _retrieval_service = RetrievalService(vector_store, _bm25_index, reranker)
     return _retrieval_service
 

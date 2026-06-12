@@ -58,7 +58,7 @@ class RetrievalService:
         vector_docs = self.vector_store.query(collection_name, query, n_results=10)
         
         # 2. Keyword Search
-        bm25_docs = self.bm25_index.search(query, top_n=10)
+        bm25_docs = self.bm25_index.search(query, collection_name=collection_name, top_n=10)
         
         # 3. Reciprocal Rank Fusion (RRF)
         fused_docs = self.reciprocal_rank_fusion(vector_docs, bm25_docs)
