@@ -50,7 +50,10 @@ const pulseRing = {
   transition: { duration: 2, repeat: Infinity, ease: "easeInOut" }
 };
 
+import WinProbabilityDashboard from '../components/dashboard/WinProbabilityDashboard';
+
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<'upload' | 'dashboard'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<string>('');
   const [statusType, setStatusType] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -243,13 +246,34 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-800 backdrop-blur-sm">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs text-zinc-400 font-medium">System Online</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center bg-zinc-900/80 border border-zinc-800 rounded-full p-1 backdrop-blur-sm">
+              <button
+                onClick={() => setActiveTab('upload')}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
+                  activeTab === 'upload' ? 'bg-cyan-500/20 text-cyan-400' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                RFP Ingestion
+              </button>
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
+                  activeTab === 'dashboard' ? 'bg-cyan-500/20 text-cyan-400' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                Executive Dashboard
+              </button>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-800 backdrop-blur-sm">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs text-zinc-400 font-medium hidden sm:inline">System Online</span>
+            </div>
           </div>
         </motion.header>
 
-        <div className="grid lg:grid-cols-5 gap-8">
+        {activeTab === 'upload' ? (
+          <div className="grid lg:grid-cols-5 gap-8">
           {/* Left Panel - Upload */}
           <motion.div 
             className="lg:col-span-3 space-y-6"
@@ -564,7 +588,10 @@ export default function Home() {
               </motion.div>
             </div>
           </motion.div>
-        </div>
+          </div>
+        ) : (
+          <WinProbabilityDashboard />
+        )}
       </div>
     </div>
   );
