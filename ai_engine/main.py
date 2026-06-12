@@ -12,6 +12,7 @@ load_dotenv()
 from services.chunking_service import process_markdown_pipeline, prepare_for_vector_db
 from services.parser_service import parse_azure_blob_hybrid
 from routes import parsing_router, compliance_router, proposal_router
+from routes.evaluate_rfp import router as evaluate_rfp_router
 
 # Lazy imports for heavy AI services (loaded on first job, not at startup)
 _vector_store = None

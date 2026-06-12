@@ -1,219 +1,150 @@
-"""
-Go/No-Go Engine — ML-based bid viability classifier with SHAP explanations.
-Evaluates whether the company should bid on an RFP based on extracted features.
-Supports training new models from historical bid data and explains decisions
-with SHAP feature importance.
-"""
-
 import os
 import logging
-from typing import Dict, Any, List, Optional
-from pathlib import Path
-
-import numpy as np
+from typing import Dict, Any, List
 import joblib
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import cross_val_score
+import numpy as np
+import shap
+from neo4j import GraphDatabase
 
 logger = logging.getLogger(__name__)
 
-# Default feature names expected by the model
-FEATURE_NAMES = [
-    "capability_score",       # 0-1: how well team skills match RFP requirements
-    "budget_alignment",       # 0-1: budget size relative to estimated cost
-    "timeline_feasibility",   # 0-1: delivery timeline realism
-    "past_win_rate",          # 0-1: historical win rate on similar RFPs
-    "competitive_intensity",  # 0-1: estimated number of competitors (inverted)
-    "strategic_value",        # 0-1: strategic importance of client/sector
-]
-
-
 class GoNoGoEngine:
     """
-    Engine to evaluate if the company should bid on an RFP (Go / No-Go decision).
-    Uses a scikit-learn RandomForest classifier with SHAP explanations.
-    Falls back to a rule-based heuristic if no trained model exists.
+    Module 5.0: Go/No-Go ML Engine (The Strategic Brain)
+    Acts as a gatekeeper using RandomForest and SHAP to predict win probability.
     """
-
-    def __init__(self, model_path: Optional[str] = None):
-        self.model_path = model_path or os.getenv(
-            "GONOGO_MODEL_PATH", "models/go_nogo_classifier.pkl"
-        )
-        self.model: Optional[RandomForestClassifier] = None
-        self.feature_names = FEATURE_NAMES
-
-        # Attempt to load a pre-trained model
-        if Path(self.model_path).exists():
+    
+    def __init__(self, model_path: str = "models/rf_model.joblib"):
+        self.model_path = model_path
+        self.neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+        self.neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
+        self.neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
+        
+        # Load the ML model
+        self.model = None
+        self.scaler = None
+        if os.path.exists(self.model_path):
             try:
-                self.model = joblib.load(self.model_path)
-                logger.info(f"GoNoGoEngine: Loaded trained model from {self.model_path}")
+                # Expecting a dict containing both model and scaler, or just model
+                saved_data = joblib.load(self.model_path)
+                if isinstance(saved_data, dict) and 'model' in saved_data:
+                    self.model = saved_data['model']
+                    self.scaler = saved_data.get('scaler', None)
+                else:
+                    self.model = saved_data
             except Exception as e:
-                logger.warning(f"GoNoGoEngine: Could not load model — {e}. Using heuristic.")
-        else:
-            logger.info(
-                f"GoNoGoEngine: No model at '{self.model_path}'. "
-                "Using rule-based heuristic until a model is trained."
-            )
+                logger.error(f"Failed to load model from {self.model_path}: {e}")
+                
+        # Define the strict feature order expected by the model
+        self.feature_names = ["compliance_rate", "tech_gap_count", "budget_margin_delta"]
 
-    def _extract_features(self, rfp_features: Dict[str, Any]) -> np.ndarray:
-        """Extract and normalize feature values into a numpy array."""
-        features = []
-        for name in self.feature_names:
-            value = rfp_features.get(name, 0.5)  # default to 0.5 (neutral)
-            features.append(float(np.clip(value, 0.0, 1.0)))
-        return np.array([features])
-
-    def _heuristic_evaluation(self, features: np.ndarray) -> float:
+    def _get_neo4j_compliance_rate(self) -> float:
         """
-        Simple weighted-sum fallback when no ML model is available.
-        Weights reflect typical business importance ordering.
+        Query Neo4j to count total Requirement nodes and how many 
+        are satisfied by an Evidence (or COMPLIES_WITH a ProposalSection).
         """
-        weights = [0.25, 0.20, 0.15, 0.20, 0.10, 0.10]
-        score = float(np.dot(features[0], weights))
-        return score
-
-    def evaluate_bid(self, rfp_features: Dict[str, Any]) -> Dict[str, Any]:
+        query = """
+        MATCH (r:Requirement)
+        WITH count(r) AS total_reqs
+        OPTIONAL MATCH (r)<-[rel:COMPLIES_WITH]-()
+        WITH total_reqs, count(rel) AS satisfied_reqs
+        RETURN total_reqs, satisfied_reqs
         """
-        Evaluate features extracted from an RFP and return a Go/No-Go decision
-        with probability and feature impact explanations.
-
-        Args:
-            rfp_features: Dict mapping feature names to values (0-1 scale).
-                Expected keys: capability_score, budget_alignment, timeline_feasibility,
-                past_win_rate, competitive_intensity, strategic_value.
-
-        Returns:
-            Dict with decision, win_probability, feature_impacts, and explanation.
-        """
-        logger.info("GoNoGoEngine: Analyzing RFP features for Go/No-Go probability.")
-        features = self._extract_features(rfp_features)
-
-        if self.model is not None:
-            # ── ML Model Path ──
-            probability = float(self.model.predict_proba(features)[0][1])
-            decision = "GO" if probability >= 0.65 else "NO-GO"
-
-            # SHAP explanations
-            feature_impacts = self._compute_shap_values(features)
-        else:
-            # ── Heuristic Fallback ──
-            probability = self._heuristic_evaluation(features)
-            decision = "GO" if probability >= 0.65 else "NO-GO"
-
-            # Simplified impact calculation (feature value × weight)
-            weights = [0.25, 0.20, 0.15, 0.20, 0.10, 0.10]
-            feature_impacts = [
-                {
-                    "feature": name,
-                    "value": float(features[0][i]),
-                    "impact": float(features[0][i] * weights[i]),
-                    "direction": "positive" if features[0][i] >= 0.5 else "negative",
-                }
-                for i, name in enumerate(self.feature_names)
-            ]
-
-        # Sort impacts by absolute magnitude
-        feature_impacts.sort(key=lambda x: abs(x["impact"]), reverse=True)
-
-        result = {
-            "decision": decision,
-            "win_probability": round(probability, 3),
-            "threshold": 0.65,
-            "model_type": "random_forest" if self.model else "heuristic",
-            "feature_impacts": feature_impacts,
-            "top_factors": [
-                f"{fi['feature']} ({fi['direction']})" for fi in feature_impacts[:3]
-            ],
-        }
-
-        logger.info(f"GoNoGoEngine: Decision={decision}, Probability={probability:.3f}")
-        return result
-
-    def _compute_shap_values(self, features: np.ndarray) -> List[Dict[str, Any]]:
-        """Compute SHAP feature importances using TreeExplainer."""
         try:
-            import shap
-            explainer = shap.TreeExplainer(self.model)
-            shap_values = explainer.shap_values(features)
-
-            # shap_values shape: [2, n_samples, n_features] for binary classification
-            # We want class 1 (GO) contributions
-            if isinstance(shap_values, list):
-                sv = shap_values[1][0]  # class=1, first sample
-            else:
-                sv = shap_values[0]
-
-            impacts = [
-                {
-                    "feature": name,
-                    "value": float(features[0][i]),
-                    "impact": float(sv[i]),
-                    "direction": "positive" if sv[i] > 0 else "negative",
-                }
-                for i, name in enumerate(self.feature_names)
-            ]
-            return impacts
-
+            driver = GraphDatabase.driver(self.neo4j_uri, auth=(self.neo4j_user, self.neo4j_password))
+            with driver.session() as session:
+                result = session.run(query).single()
+                if not result or result["total_reqs"] == 0:
+                    return 1.0 # Default to 100% if no rules exist
+                
+                total = result["total_reqs"]
+                satisfied = result["satisfied_reqs"]
+                return satisfied / total
         except Exception as e:
-            logger.warning(f"GoNoGoEngine: SHAP computation failed — {e}. Using feature importances.")
-            importances = self.model.feature_importances_
-            return [
-                {
-                    "feature": name,
-                    "value": float(features[0][i]),
-                    "impact": float(importances[i] * features[0][i]),
-                    "direction": "positive" if features[0][i] >= 0.5 else "negative",
-                }
-                for i, name in enumerate(self.feature_names)
-            ]
+            logger.error(f"Neo4j query failed: {e}")
+            return 0.5 # Neutral fallback
 
-    def train_model(
-        self,
-        training_data: List[Dict[str, Any]],
-        save: bool = True,
-    ) -> Dict[str, Any]:
+    def _extract_features(self, state: Dict[str, Any]) -> Dict[str, float]:
         """
-        Train a new RandomForest classifier on historical bid data.
-
-        Args:
-            training_data: List of dicts, each with feature values and a 'label' key (1=won, 0=lost).
-            save: Whether to persist the model to disk.
-
-        Returns:
-            Training metrics (accuracy, cross-val scores).
+        Combine LangGraph state metrics with Neo4j compliance rate.
         """
-        logger.info(f"GoNoGoEngine: Training classifier with {len(training_data)} records.")
-
-        X = np.array([
-            [float(d.get(name, 0.5)) for name in self.feature_names]
-            for d in training_data
-        ])
-        y = np.array([int(d["label"]) for d in training_data])
-
-        self.model = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=6,
-            random_state=42,
-            class_weight="balanced",
-        )
-        self.model.fit(X, y)
-
-        # Cross-validation
-        cv_scores = cross_val_score(self.model, X, y, cv=min(5, len(y)), scoring="accuracy")
-
-        if save:
-            Path(self.model_path).parent.mkdir(parents=True, exist_ok=True)
-            joblib.dump(self.model, self.model_path)
-            logger.info(f"GoNoGoEngine: Model saved to {self.model_path}")
-
-        metrics = {
-            "samples": len(training_data),
-            "accuracy_mean": round(float(cv_scores.mean()), 4),
-            "accuracy_std": round(float(cv_scores.std()), 4),
-            "feature_importances": {
-                name: round(float(imp), 4)
-                for name, imp in zip(self.feature_names, self.model.feature_importances_)
-            },
+        # 1. Neo4j Compliance Rate
+        compliance_rate = self._get_neo4j_compliance_rate()
+        
+        # 2. Tech Gap Count
+        gaps = state.get("compliance_gaps", [])
+        tech_gap_count = float(len(gaps))
+        
+        # 3. Budget Margin Delta
+        rfp_budget = float(state.get("rfp_budget", 100000))
+        company_base_cost = float(state.get("company_base_cost", 80000))
+        
+        if rfp_budget > 0:
+            budget_margin_delta = (rfp_budget - company_base_cost) / rfp_budget
+        else:
+            budget_margin_delta = 0.0
+            
+        return {
+            "compliance_rate": compliance_rate,
+            "tech_gap_count": tech_gap_count,
+            "budget_margin_delta": budget_margin_delta
         }
-        logger.info(f"GoNoGoEngine: Training complete — {metrics}")
-        return metrics
+
+    def evaluate_rfp(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Evaluates the RFP and returns the decision payload.
+        """
+        # 1. Feature Extraction
+        extracted_features = self._extract_features(state)
+        
+        # Create ordered feature array
+        X_raw = np.array([[
+            extracted_features["compliance_rate"],
+            extracted_features["tech_gap_count"],
+            extracted_features["budget_margin_delta"]
+        ]])
+        
+        # Apply scaling if a scaler was loaded
+        X_scaled = self.scaler.transform(X_raw) if self.scaler else X_raw
+
+        # 2. Inference
+        if self.model is None:
+            # Fallback heuristic if no model is loaded
+            win_probability = 0.5
+            shap_dict = {f: {"value": extracted_features[f], "attribution": 0.0} for f in self.feature_names}
+        else:
+            # Predict probability of class 1 (Win)
+            probas = self.model.predict_proba(X_scaled)
+            win_probability = float(probas[0][1])
+            
+            # 4. Explainability (SHAP)
+            try:
+                explainer = shap.TreeExplainer(self.model)
+                shap_values = explainer.shap_values(X_scaled)
+                
+                # Handling binary classification output format
+                if isinstance(shap_values, list):
+                    sv = shap_values[1][0] # class 1
+                else:
+                    # Depending on shap/model version, might just be a 2D array
+                    sv = shap_values[0] if len(shap_values.shape) == 2 else shap_values[1][0]
+                    
+                shap_dict = {}
+                for i, name in enumerate(self.feature_names):
+                    shap_dict[name] = {
+                        "value": float(extracted_features[name]),
+                        "attribution": float(sv[i])
+                    }
+            except Exception as e:
+                logger.error(f"SHAP explanation failed: {e}")
+                shap_dict = {f: {"value": extracted_features[f], "attribution": 0.0} for f in self.feature_names}
+
+        # 3. Decision Logic
+        decision = "GO" if win_probability >= 0.65 else "NO-GO"
+
+        return {
+            "win_probability": round(win_probability, 3),
+            "decision": decision,
+            "features_extracted": extracted_features,
+            "shap_explanations": shap_dict
+        }
