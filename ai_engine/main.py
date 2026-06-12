@@ -54,7 +54,7 @@ async def process_rfp_background(job: RfpJob):
         # ✅ Step 2: AI Processing (Ready for Vector Storage & Agents)
         logger.info(f"[STEP 2] Initializing Multi-Agent Swarm and Vector Mapping...")
         
-        # This hierarchy tree is exactly what your ChromaDB and LangGraph agents will use
+        # This hierarchy tree is exactly what your Qdrant and LangGraph agents will use
         result = {
             "parent_sections_count": len(document_hierarchy),
             "ai_summary": "Ready to prompt Planner Agent.",

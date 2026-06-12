@@ -221,7 +221,7 @@ Context:"""
 
 def prepare_for_vector_db(child_chunks: List[Chunk]) -> List[Dict[str, Any]]:
     """
-    Convert child chunks into documents ready for insertion into ChromaDB.
+    Convert child chunks into documents ready for insertion into Qdrant.
     Each item includes:
         - id (chunk.id)
         - embedding_text (chunk.get_text_for_embedding())

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class RetrievalService:
     """
     Orchestrates Hybrid Search by executing:
-      1. Semantic query via VectorStore (ChromaDB)
+      1. Semantic query via VectorStore (Qdrant)
       2. Keyword query via BM25Index (or Elasticsearch)
       3. Reciprocal Rank Fusion (RRF) to merge ranks
       4. Reranker (Cross-Encoder) validation to get top results

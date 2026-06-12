@@ -9,13 +9,12 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
+      - QDRANT_URL=https://94c5ebf0-8087-421a-a94c-f8f0a86585d0.us-east-2-0.aws.cloud.qdrant.io
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
       - NEO4J_URI=bolt://neo4j:7687
       - ELASTICSEARCH_HOST=elasticsearch
       - REDIS_HOST=redis
     depends_on:
-      - chromadb
       - neo4j
       - redis
       - elasticsearch
@@ -44,15 +43,6 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:5000
     depends_on:
       - net-api
-
-  chromadb:
-    build:
-      context: .
-      dockerfile: ./infrastructure/docker/chromadb.Dockerfile
-    ports:
-      - "8001:8000"
-    volumes:
-      - chromadb_data:/chroma/chroma
 
   neo4j:
     build:
@@ -84,6 +74,5 @@ services:
       - es_data:/usr/share/elasticsearch/data
 
 volumes:
-  chromadb_data:
   neo4j_data:
   es_data:

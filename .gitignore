@@ -5,6 +5,7 @@ __pycache__/
 *.pyd
 .env
 .env.*
+!.env.example
 venv/
 *.egg-info/
 rfp_engine.log
