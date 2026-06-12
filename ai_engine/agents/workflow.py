@@ -48,11 +48,13 @@ def get_retrieval_service() -> RetrievalService:
     return _retrieval_service
 
 
+import os
+
 # ── Graph Node Wrapper Functions ──
 
 def plan_node(state: AgentState) -> Dict[str, Any]:
     logger.info("Executing Graph Node: [PLAN]")
-    llm = get_llm_client()
+    llm = LLMClient(api_key=os.getenv("PLANNER_GROQ_API_KEY"))
     retrieval = get_retrieval_service()
     agent = PlannerAgent(llm_client=llm, retrieval_service=retrieval)
     return agent.plan(state)
@@ -60,7 +62,7 @@ def plan_node(state: AgentState) -> Dict[str, Any]:
 
 def write_node(state: AgentState) -> Dict[str, Any]:
     logger.info("Executing Graph Node: [WRITE]")
-    llm = get_llm_client()
+    llm = LLMClient(api_key=os.getenv("WRITER_GROQ_API_KEY"))
     retrieval = get_retrieval_service()
     agent = WriterAgent(llm_client=llm, retrieval_service=retrieval)
     return agent.write(state)
@@ -68,14 +70,14 @@ def write_node(state: AgentState) -> Dict[str, Any]:
 
 def gatekeeper_node(state: AgentState) -> Dict[str, Any]:
     logger.info("Executing Graph Node: [GATEKEEPER]")
-    llm = get_llm_client()
+    llm = LLMClient(api_key=os.getenv("GATEKEEPER_GROQ_API_KEY"))
     agent = GatekeeperAgent(llm_client=llm)
     return agent.verify(state)
 
 
 def judge_node(state: AgentState) -> Dict[str, Any]:
     logger.info("Executing Graph Node: [JUDGE]")
-    llm = get_llm_client()
+    llm = LLMClient(api_key=os.getenv("JUDGE_GROQ_API_KEY"))
     agent = JudgeAgent(llm_client=llm)
     return agent.score(state)
 

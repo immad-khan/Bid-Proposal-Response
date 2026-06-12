@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiClient } from '../../../services/apiClient';
 
 interface Requirement {
   id: string;
@@ -11,44 +12,24 @@ interface Requirement {
 }
 
 export default function ComplianceMatrix({ apiUrl }: { apiUrl: string }) {
-  const [requirements, setRequirements] = useState<Requirement[]>([
-    {
-      id: 'REQ-1',
-      section_path: 'Technical Requirements > Vector Engine',
-      description: 'Must migrate from local ChromaDB instances to Qdrant Cloud cluster with authentication.',
-      is_mandatory: true,
-      status: 'COMPLIANT',
-      evidence: 'Migrated vector_store.py to use QdrantClient connected to cloud cluster endpoint with API key.',
-      score: 1.0,
-    },
-    {
-      id: 'REQ-2',
-      section_path: 'Technical Requirements > Compliance Graph',
-      description: 'Requires Neo4j Compliance Matrix service mapping proposal sections to requirements.',
-      is_mandatory: true,
-      status: 'COMPLIANT',
-      evidence: 'ComplianceMatrixService implemented in Cypher, linking proposal paragraphs to original bid constraints.',
-      score: 1.0,
-    },
-    {
-      id: 'REQ-3',
-      section_path: 'Security > Authentication',
-      description: 'System must utilize secure production-grade JWT claims instead of mock string representations.',
-      is_mandatory: true,
-      status: 'COMPLIANT',
-      evidence: 'AuthService refactored using JwtSecurityTokenHandler generating standard 4-hour validity claims.',
-      score: 1.0,
-    },
-    {
-      id: 'REQ-4',
-      section_path: 'Performance > Execution Swarm',
-      description: 'Multi-agent writer pipeline must compile under LangGraph flow constraints.',
-      is_mandatory: false,
-      status: 'PARTIAL',
-      evidence: 'Compiled StateGraph successfully, but latency remains to be evaluated under high load.',
-      score: 0.8,
-    },
-  ]);
+  const [requirements, setRequirements] = useState<Requirement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMatrix = async () => {
+      try {
+        const data = await apiClient.getCompliance();
+        if (data && Array.isArray(data)) {
+          setRequirements(data);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch compliance matrix, falling back to empty list.', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMatrix();
+  }, []);
 
   const [filter, setFilter] = useState<'ALL' | 'COMPLIANT' | 'PARTIAL' | 'NON_COMPLIANT'>('ALL');
   const [newReq, setNewReq] = useState({ id: '', path: '', desc: '' });

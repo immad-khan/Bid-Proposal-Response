@@ -19,8 +19,9 @@ class LLMClient:
     when optional provider packages are not installed.
     """
 
-    def __init__(self, provider: Optional[str] = None):
+    def __init__(self, provider: Optional[str] = None, api_key: Optional[str] = None):
         self.provider = provider or os.getenv("LLM_PROVIDER", "groq").lower()
+        self.api_key = api_key
         self._client = None
         self._model = None
         logger.info(f"LLMClient: Configured for provider '{self.provider}'")
@@ -40,7 +41,7 @@ class LLMClient:
 
         elif self.provider == "groq":
             from groq import Groq
-            api_key = os.getenv("GROQ_API_KEY")
+            api_key = self.api_key or os.getenv("GROQ_API_KEY")
             if not api_key:
                 raise ValueError("GROQ_API_KEY environment variable is not set.")
             self._client = Groq(api_key=api_key)

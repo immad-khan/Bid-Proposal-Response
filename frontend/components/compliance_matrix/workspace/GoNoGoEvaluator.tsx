@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiClient } from '../../../services/apiClient';
 
 interface FeatureState {
   capability_score: number;
@@ -37,22 +38,15 @@ export default function GoNoGoEvaluator({ apiUrl }: { apiUrl: string }) {
   const evaluateBid = async () => {
     setLoading(true);
     try {
-      // Direct call to Python engine for ML classification
-      const engineUrl = 'http://localhost:8000'; // Python engine directly
-      const response = await fetch(`${engineUrl}/compliance/evaluate-bid`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(features),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+      // Use the centralized apiClient proxy
+      const data = await apiClient.evaluateGoNoGo(features as unknown as Record<string, number>);
+      if (data && data.decision) {
         setResult(data);
       } else {
-        // Fallback calculation for mock safety
         simulateEvaluation();
       }
     } catch (err) {
+      console.error('Failed to call evaluateGoNoGo, falling back to heuristic simulation', err);
       simulateEvaluation();
     } finally {
       setLoading(false);
