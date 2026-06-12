@@ -109,3 +109,17 @@ async def evaluate_bid(data: GoNoGoEvaluateSchema):
     except Exception as e:
         logger.error(f"Go/No-Go evaluation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+from fastapi.responses import FileResponse
+
+@router.get("/export")
+async def export_matrix():
+    """6.1 Build Matrix: Export the compliance matrix to a CSV file."""
+    if not neo4j_service:
+        raise HTTPException(status_code=503, detail="Neo4j service unavailable")
+    try:
+        filepath = neo4j_service.export_to_csv()
+        return FileResponse(filepath, media_type='text/csv', filename="compliance_matrix.csv")
+    except Exception as e:
+        logger.error(f"Failed to export CSV: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

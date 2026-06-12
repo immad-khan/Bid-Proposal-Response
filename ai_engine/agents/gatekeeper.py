@@ -105,11 +105,25 @@ class GatekeeperAgent:
                     # Merge structural issues into LLM analysis
                     llm_issues = analysis.get("issues", [])
                     all_issues = structural_issues + llm_issues
+                    
+                    # ── Graph Database Evidence Check ──
+                    try:
+                        neo4j = ComplianceMatrixService()
+                        has_evidence = neo4j.has_evidence_link(req_id)
+                        neo4j.close()
+                    except Exception as e:
+                        logger.warning(f"GatekeeperAgent: Neo4j evidence check failed for [{req_id}] — {e}")
+                        has_evidence = True  # Default pass if db is down
+                        
+                    if not has_evidence:
+                        all_issues.append("Missing SATISFIED_BY edge to Evidence node in Neo4j graph.")
+                        
                     analysis["issues"] = all_issues
 
                     passed = (
                         analysis.get("recommendation", "reject") == "pass"
                         and not structural_issues
+                        and has_evidence
                     )
                     analysis["passed"] = passed
 

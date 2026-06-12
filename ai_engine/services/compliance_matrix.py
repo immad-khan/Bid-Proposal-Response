@@ -158,6 +158,35 @@ class ComplianceMatrixService:
                     f"{requirement_id}. Check that both nodes exist."
                 )
 
+    def create_evidence_node(self, evidence_id: str, title: str, document_url: str = ""):
+        """Create or merge an Evidence node."""
+        query = """
+        MERGE (e:Evidence {id: $evidence_id})
+        SET e.title        = $title,
+            e.document_url = $document_url,
+            e.updated_at   = datetime()
+        RETURN e.id AS id
+        """
+        with self._driver.session() as session:
+            result = session.run(query, evidence_id=evidence_id, title=title, document_url=document_url)
+            logger.info(f"ComplianceMatrixService: Upserted Evidence [{result.single()['id']}]")
+
+    def link_evidence(self, requirement_id: str, evidence_id: str):
+        """Link Evidence to Requirement via SATISFIED_BY edge."""
+        query = """
+        MATCH (r:Requirement {id: $rid})
+        MATCH (e:Evidence {id: $eid})
+        MERGE (r)<-[rel:SATISFIED_BY]-(e)
+        SET rel.updated_at = datetime()
+        RETURN r.id AS rid, e.id AS eid
+        """
+        with self._driver.session() as session:
+            result = session.run(query, rid=requirement_id, eid=evidence_id)
+            if result.single():
+                logger.info(f"ComplianceMatrixService: Linked Evidence [{evidence_id}] → Requirement [{requirement_id}]")
+            else:
+                logger.warning("ComplianceMatrixService: Failed to link Evidence to Requirement.")
+
     # ─────────────────── Read Operations ───────────────────
 
     def get_compliance_matrix(self) -> List[Dict[str, Any]]:
@@ -210,6 +239,16 @@ class ComplianceMatrixService:
         logger.info(f"ComplianceMatrixService: Found {len(gaps)} unaddressed requirements.")
         return gaps
 
+    def has_evidence_link(self, requirement_id: str) -> bool:
+        """Check if a Requirement node is connected to Evidence via SATISFIED_BY."""
+        query = """
+        MATCH (r:Requirement {id: $rid})<-[:SATISFIED_BY]-(e:Evidence)
+        RETURN e.id AS eid LIMIT 1
+        """
+        with self._driver.session() as session:
+            result = session.run(query, rid=requirement_id)
+            return result.single() is not None
+
     def get_compliance_summary(self) -> Dict[str, Any]:
         """
         Return aggregate compliance statistics.
@@ -243,3 +282,28 @@ class ComplianceMatrixService:
         }
         logger.info(f"ComplianceMatrixService: Summary — {summary}")
         return summary
+
+    def export_to_csv(self, filepath: str = "compliance_matrix.csv") -> str:
+        """
+        6.1 Build Matrix: Exports the structured table of requirements and 
+        their compliance status to a CSV file.
+        """
+        import csv
+        matrix_data = self.get_compliance_matrix()
+        
+        with open(filepath, mode='w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Requirement ID", "Section Path", "Mandatory", "Status", "Score", "Proposal Section", "Evidence Ref"])
+            for row in matrix_data:
+                writer.writerow([
+                    row.get("requirement_id", ""),
+                    row.get("section_path", ""),
+                    "Yes" if row.get("is_mandatory") else "No",
+                    row.get("status", "MISSING"),
+                    row.get("score", 0.0),
+                    row.get("proposal_section_title", ""),
+                    row.get("evidence", "")
+                ])
+                
+        logger.info(f"ComplianceMatrixService: Exported matrix to {filepath}")
+        return filepath
