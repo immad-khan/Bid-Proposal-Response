@@ -3,9 +3,15 @@ from pydantic import BaseModel
 from typing import Dict, Optional
 import logging
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
 # 1. At the top of main.py, import your chunker tool:
 from services.chunking_service import create_parent_child_chunks
 from parser_rfp import parse_azure_blob_hybrid
+from routes import parsing_router, compliance_router, proposal_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,6 +28,12 @@ app = FastAPI(
     description="Processes RFP documents from Azure Blob Storage",
     version="1.0.0"
 )
+
+# Register sub-routers
+app.include_router(parsing_router)
+app.include_router(compliance_router)
+app.include_router(proposal_router)
+
 
 job_store: Dict[str, dict] = {}
 

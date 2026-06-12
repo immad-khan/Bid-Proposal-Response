@@ -3,8 +3,14 @@ var builder = WebApplication.CreateBuilder(args);
 // ✅ Add Controllers
 builder.Services.AddControllers();
 
+// ✅ Custom Services DI
+builder.Services.AddSingleton<BackendNet.Services.IAuthService, BackendNet.Services.AuthService>();
+builder.Services.AddSingleton<BackendNet.Services.IBlobStorageService, BackendNet.Services.BlobStorageService>();
+builder.Services.AddSingleton<BackendNet.Services.IProjectManagementService, BackendNet.Services.ProjectManagementService>();
+
 // ✅ HttpClient (built into .NET 10, no extra package needed)
 builder.Services.AddHttpClient();
+
 
 // ✅ CORS for React
 builder.Services.AddCors(options =>

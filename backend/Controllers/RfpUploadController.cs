@@ -1,6 +1,13 @@
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Azure.Storage.Blobs;
-using System.Text.Json;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using BackendNet.Services;
 
 namespace BackendNet.Controllers
 {
@@ -8,15 +15,21 @@ namespace BackendNet.Controllers
     [Route("api/[controller]")]
     public class RfpUploadController : ControllerBase
     {
+        private readonly IBlobStorageService _blobStorageService;
+        private readonly IProjectManagementService _projectManagementService;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly ILogger<RfpUploadController> _logger;
 
         public RfpUploadController(
-            IHttpClientFactory httpClientFactory, 
+            IBlobStorageService blobStorageService,
+            IProjectManagementService projectManagementService,
+            IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
             ILogger<RfpUploadController> logger)
         {
+            _blobStorageService = blobStorageService;
+            _projectManagementService = projectManagementService;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
@@ -36,71 +49,61 @@ namespace BackendNet.Controllers
 
                 _logger.LogInformation($"Processing upload: {file.FileName} ({file.Length} bytes)");
 
-                // 1. Upload to Azure Blob Storage
-                var connectionString = _configuration["AzureStorage:ConnectionString"];
-                
-                if (string.IsNullOrEmpty(connectionString))
-                {
-                    _logger.LogError("Azure Storage connection string not configured");
-                    return StatusCode(500, new { error = "Storage not configured" });
-                }
-
-                var blobServiceClient = new BlobServiceClient(connectionString);
-                var containerClient = blobServiceClient.GetBlobContainerClient("rfp-uploads");
-                await containerClient.CreateIfNotExistsAsync();
-
-                var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
-                var blobClient = containerClient.GetBlobClient(uniqueFileName);
-                
+                // 1. Upload using BlobStorageService
+                string blobUrl;
                 using (var stream = file.OpenReadStream())
                 {
-                    await blobClient.UploadAsync(stream, overwrite: true);
+                    blobUrl = await _blobStorageService.UploadFileAsync(stream, file.FileName, file.ContentType);
                 }
+                _logger.LogInformation($"File uploaded successfully to: {blobUrl}");
 
-                var blobUrl = blobClient.Uri.ToString();
-                _logger.LogInformation($"File uploaded to blob: {blobUrl}");
+                // 2. Create proposal project entity in local memory DB
+                var projectName = Path.GetFileNameWithoutExtension(file.FileName);
+                var project = await _projectManagementService.CreateProjectAsync(projectName, blobUrl);
+                _logger.LogInformation($"Created proposal project: {project.Id}");
 
-                // 2. Trigger the Python Engine
-                var jobId = Guid.NewGuid().ToString();
-                var payload = new { jobId, blobUrl, filename = file.FileName };
+                // 3. Trigger the Python Engine (using project.Id as the Job/Tracking Id)
+                var payload = new 
+                { 
+                    jobId = project.Id, 
+                    blobUrl = blobUrl, 
+                    filename = file.FileName 
+                };
 
                 var client = _httpClientFactory.CreateClient();
-                client.Timeout = TimeSpan.FromMinutes(5); // Adjust as needed
+                client.Timeout = TimeSpan.FromMinutes(5);
                 
                 var pythonEngineUrl = _configuration["PythonEngine:Url"] ?? "http://localhost:8000";
-                var response = await client.PostAsJsonAsync($"{pythonEngineUrl}/process-rfp", payload);
+                
+                // Let's call /parsing/parse which is our new parsing router endpoint
+                _logger.LogInformation($"Triggering parser at: {pythonEngineUrl}/parsing/parse");
+                var response = await client.PostAsJsonAsync($"{pythonEngineUrl}/parsing/parse", payload);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogInformation($"Job {jobId} submitted to AI engine successfully");
+                    _logger.LogInformation($"Job {project.Id} submitted to AI engine successfully");
+                    await _projectManagementService.UpdateProjectStatusAsync(project.Id, "ParsingStarted");
+
                     return Ok(new 
                     { 
                         status = "Success", 
-                        jobId, 
-                        message = "Engine triggered.",
-                        blobUrl 
+                        jobId = project.Id, 
+                        message = "AI Engine parsing and generation triggered.",
+                        blobUrl = blobUrl 
                     });
                 }
                 else
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
                     _logger.LogError($"AI Engine returned {response.StatusCode}: {errorContent}");
+                    await _projectManagementService.UpdateProjectStatusAsync(project.Id, "ParsingFailed");
+
                     return StatusCode(500, new 
                     { 
                         error = "Failed to reach AI Engine.",
                         details = errorContent 
                     });
                 }
-            }
-            catch (Azure.RequestFailedException ex)
-            {
-                _logger.LogError(ex, "Azure Storage error");
-                return StatusCode(500, new { error = "Storage upload failed", details = ex.Message });
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "Python Engine connection failed");
-                return StatusCode(500, new { error = "Cannot connect to AI Engine. Is it running on port 8000?", details = ex.Message });
             }
             catch (Exception ex)
             {

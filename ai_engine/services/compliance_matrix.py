@@ -1,51 +1,245 @@
+"""
+Compliance Matrix Service — Neo4j graph database client.
+Stores RFP requirements and proposal sections as graph nodes and links them
+with COMPLIES_WITH relationships to enable compliance tracking and gap analysis.
+"""
+
 import os
 import logging
 from typing import List, Dict, Any, Optional
 
+from neo4j import GraphDatabase
+
 logger = logging.getLogger(__name__)
+
 
 class ComplianceMatrixService:
     """
-    Neo4j client wrapper for constructing and querying compliance graphs.
+    Neo4j client for constructing and querying the compliance graph.
+    Nodes: Requirement, ProposalSection
+    Relationships: COMPLIES_WITH (status: COMPLIANT | PARTIAL | NON_COMPLIANT)
     """
-    def __init__(self, uri: Optional[str] = None, username: Optional[str] = None, password: Optional[str] = None):
+
+    def __init__(
+        self,
+        uri: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+    ):
         self.uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
         self.username = username or os.getenv("NEO4J_USERNAME", "neo4j")
         self.password = password or os.getenv("NEO4J_PASSWORD", "password")
-        logger.info(f"ComplianceMatrixService: Initialized Neo4j connection at {self.uri}")
 
-    def create_requirement_node(self, requirement_id: str, section_path: str, description: str):
-        """
-        Mock creating a Requirement node in Neo4j.
-        """
-        logger.info(f"ComplianceMatrixService: Creating Requirement Node [{requirement_id}] under Section: {section_path}")
-        # cypher = "CREATE (r:Requirement {id: $id, section: $sec, text: $text})"
-        pass
+        logger.info(f"ComplianceMatrixService: Connecting to Neo4j at {self.uri}")
+        self._driver = GraphDatabase.driver(
+            self.uri, auth=(self.username, self.password)
+        )
+        # Verify connectivity
+        self._driver.verify_connectivity()
+        logger.info("ComplianceMatrixService: Connected successfully.")
 
-    def link_compliance(self, proposal_section_id: str, requirement_id: str, status: str = "COMPLIANT"):
+    def close(self):
+        """Close the Neo4j driver connection."""
+        self._driver.close()
+        logger.info("ComplianceMatrixService: Connection closed.")
+
+    # ─────────────────── Write Operations ───────────────────
+
+    def create_requirement_node(
+        self,
+        requirement_id: str,
+        section_path: str,
+        description: str,
+        is_mandatory: bool = True,
+        page_ref: Optional[int] = None,
+    ):
         """
-        Mock linking a Proposal section to a compliance Requirement in Neo4j.
+        Create or merge a Requirement node in the graph.
+
+        Args:
+            requirement_id: Unique requirement identifier (e.g. REQ_001).
+            section_path: Section hierarchy path (e.g. 'Technical > Security > ISO 27001').
+            description: Full requirement text.
+            is_mandatory: Whether the requirement is mandatory.
+            page_ref: Source page number in the RFP document.
         """
-        logger.info(f"ComplianceMatrixService: Linking Proposal Section [{proposal_section_id}] -> Requirement [{requirement_id}] (Status: {status})")
-        # cypher = "MATCH (p:ProposalSection {id: $pid}), (r:Requirement {id: $rid}) CREATE (p)-[:COMPLIES_WITH {status: $status}]->(r)"
-        pass
+        query = """
+        MERGE (r:Requirement {id: $req_id})
+        SET r.section_path  = $section_path,
+            r.description   = $description,
+            r.is_mandatory   = $is_mandatory,
+            r.page_reference = $page_ref,
+            r.updated_at     = datetime()
+        RETURN r.id AS id
+        """
+        with self._driver.session() as session:
+            result = session.run(
+                query,
+                req_id=requirement_id,
+                section_path=section_path,
+                description=description,
+                is_mandatory=is_mandatory,
+                page_ref=page_ref,
+            )
+            record = result.single()
+            logger.info(f"ComplianceMatrixService: Upserted Requirement [{record['id']}]")
+
+    def create_proposal_section_node(
+        self, section_id: str, title: str, content_preview: str = ""
+    ):
+        """
+        Create or merge a ProposalSection node.
+
+        Args:
+            section_id: Unique section identifier.
+            title: Section heading.
+            content_preview: First 500 chars of the draft for quick reference.
+        """
+        query = """
+        MERGE (p:ProposalSection {id: $section_id})
+        SET p.title           = $title,
+            p.content_preview = $content_preview,
+            p.updated_at      = datetime()
+        RETURN p.id AS id
+        """
+        with self._driver.session() as session:
+            result = session.run(
+                query, section_id=section_id, title=title, content_preview=content_preview
+            )
+            record = result.single()
+            logger.info(f"ComplianceMatrixService: Upserted ProposalSection [{record['id']}]")
+
+    def link_compliance(
+        self,
+        proposal_section_id: str,
+        requirement_id: str,
+        status: str = "COMPLIANT",
+        evidence: str = "",
+        score: float = 1.0,
+    ):
+        """
+        Create a COMPLIES_WITH relationship between a ProposalSection and a Requirement.
+
+        Args:
+            proposal_section_id: The proposal section node ID.
+            requirement_id: The requirement node ID.
+            status: One of COMPLIANT, PARTIAL, NON_COMPLIANT.
+            evidence: Supporting evidence text or chunk reference.
+            score: Numeric compliance score (0.0 – 1.0).
+        """
+        query = """
+        MATCH (p:ProposalSection {id: $pid})
+        MATCH (r:Requirement {id: $rid})
+        MERGE (p)-[rel:COMPLIES_WITH]->(r)
+        SET rel.status     = $status,
+            rel.evidence   = $evidence,
+            rel.score      = $score,
+            rel.updated_at = datetime()
+        RETURN p.id AS pid, r.id AS rid, rel.status AS status
+        """
+        with self._driver.session() as session:
+            result = session.run(
+                query,
+                pid=proposal_section_id,
+                rid=requirement_id,
+                status=status,
+                evidence=evidence,
+                score=score,
+            )
+            record = result.single()
+            if record:
+                logger.info(
+                    f"ComplianceMatrixService: Linked [{record['pid']}] → [{record['rid']}] "
+                    f"(Status: {record['status']})"
+                )
+            else:
+                logger.warning(
+                    f"ComplianceMatrixService: Could not link {proposal_section_id} → "
+                    f"{requirement_id}. Check that both nodes exist."
+                )
+
+    # ─────────────────── Read Operations ───────────────────
 
     def get_compliance_matrix(self) -> List[Dict[str, Any]]:
         """
-        Mock query retrieving the overall compliance status.
+        Retrieve the full compliance matrix — all requirement-to-proposal mappings.
+
+        Returns:
+            List of dicts with requirement_id, section_path, status,
+            proposal_section, evidence, and score.
         """
-        logger.info("ComplianceMatrixService: Retrieving full compliance matrix graph report.")
-        return [
-            {
-                "requirement_id": "REQ_001",
-                "section_path": "Technical > Security",
-                "status": "COMPLIANT",
-                "proposal_section": "Proposal > TechResponse > Section 2.1"
-            },
-            {
-                "requirement_id": "REQ_002",
-                "section_path": "Commercial > Costing",
-                "status": "PARTIALLY_COMPLIANT",
-                "proposal_section": "Proposal > Costing > Section 3"
-            }
-        ]
+        query = """
+        MATCH (p:ProposalSection)-[rel:COMPLIES_WITH]->(r:Requirement)
+        RETURN r.id              AS requirement_id,
+               r.section_path    AS section_path,
+               r.is_mandatory    AS is_mandatory,
+               rel.status        AS status,
+               rel.score         AS score,
+               rel.evidence      AS evidence,
+               p.id              AS proposal_section_id,
+               p.title           AS proposal_section_title
+        ORDER BY r.section_path
+        """
+        with self._driver.session() as session:
+            result = session.run(query)
+            rows = [dict(record) for record in result]
+
+        logger.info(f"ComplianceMatrixService: Retrieved {len(rows)} compliance mappings.")
+        return rows
+
+    def get_missing_requirements(self) -> List[Dict[str, Any]]:
+        """
+        Find requirements that have NO associated proposal section (gaps).
+
+        Returns:
+            List of requirement dicts that are unlinked.
+        """
+        query = """
+        MATCH (r:Requirement)
+        WHERE NOT (r)<-[:COMPLIES_WITH]-()
+        RETURN r.id           AS requirement_id,
+               r.section_path AS section_path,
+               r.description  AS description,
+               r.is_mandatory AS is_mandatory
+        ORDER BY r.is_mandatory DESC, r.section_path
+        """
+        with self._driver.session() as session:
+            result = session.run(query)
+            gaps = [dict(record) for record in result]
+
+        logger.info(f"ComplianceMatrixService: Found {len(gaps)} unaddressed requirements.")
+        return gaps
+
+    def get_compliance_summary(self) -> Dict[str, Any]:
+        """
+        Return aggregate compliance statistics.
+
+        Returns:
+            Dict with total requirements, compliant/partial/non-compliant/missing counts.
+        """
+        query = """
+        MATCH (r:Requirement)
+        OPTIONAL MATCH (r)<-[rel:COMPLIES_WITH]-()
+        RETURN r.id        AS req_id,
+               rel.status  AS status
+        """
+        with self._driver.session() as session:
+            result = session.run(query)
+            records = [dict(r) for r in result]
+
+        total = len(records)
+        compliant = sum(1 for r in records if r["status"] == "COMPLIANT")
+        partial = sum(1 for r in records if r["status"] == "PARTIAL")
+        non_compliant = sum(1 for r in records if r["status"] == "NON_COMPLIANT")
+        missing = sum(1 for r in records if r["status"] is None)
+
+        summary = {
+            "total_requirements": total,
+            "compliant": compliant,
+            "partial": partial,
+            "non_compliant": non_compliant,
+            "missing": missing,
+            "compliance_rate": round(compliant / total * 100, 1) if total > 0 else 0,
+        }
+        logger.info(f"ComplianceMatrixService: Summary — {summary}")
+        return summary
