@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiClient } from '../../services/apiClient';
 
 interface SwarmStep {
   name: string;
@@ -49,42 +50,37 @@ export default function ProposalSwarmWorkspace({
     };
 
     try {
-      // 1. Planner starts
       updateStep(0, 'RUNNING', 'Identifying RFP requirements and building structure...');
-      await new Promise((r) => setTimeout(r, 1500));
-      updateStep(0, 'SUCCESS', 'Checklist with 3 main compliance objectives generated.');
+      
+      // Call the real API via apiClient
+      const response = await apiClient.generateProposal(projectId, rfpText);
+      
+      // After response is received, we can visually update the steps to SUCCESS
+      updateStep(0, 'SUCCESS', `Checklist generated.`);
       setChecklist([
-        'Deliverable 1: Cloud Native Vector search framework setup.',
-        'Deliverable 2: Neo4j Cypher verification procedures.',
-        'Deliverable 3: Secure token credentials implementation.',
+        `Planner identified ${response.sections_drafted} sections.`,
+        `Overall Score: ${response.overall_score}`,
+        `Approved: ${response.approved}`
       ]);
 
-      // 2. Writer starts
-      updateStep(1, 'RUNNING', 'Querying Qdrant index and composing RAG responses...');
-      await new Promise((r) => setTimeout(r, 2000));
-      updateStep(1, 'SUCCESS', 'Response draft generated using 4 key search citations.');
-      setProposalDraft({
-        'Technical Workspace':
-          '### Technical Execution Plan\n\nWe propose utilizing Qdrant Cloud to index and retrieve RFP requirements. By using BAAI/bge-small-en-v1.5 sentence embeddings, the system retrieves compliance nodes with 94% semantic precision. The response is audited using Neo4j compliant edge lookups.',
-        'Compliance Verification':
-          '### Compliance Verification Protocol\n\nAll requirements are loaded into a Neo4j knowledge graph. A validation pipeline crawls draft sections and builds COMPLIANT/PARTIAL links between the proposal and the initial constraints, identifying gaps dynamically.',
-      });
+      updateStep(1, 'SUCCESS', `Drafted ${response.sections_drafted} sections using RAG.`);
+      setProposalDraft(response.draft_previews || {});
 
-      // 3. Gatekeeper starts
-      updateStep(2, 'RUNNING', 'Scanning drafts for placeholders, TODOs, and semantic errors...');
-      await new Promise((r) => setTimeout(r, 1500));
-      updateStep(2, 'WARNING', 'No major placeholders found, but identified potential timeline discrepancy.');
-      setWarnings([
-        'Warning: Planner schedule references a 6-month cycle while technical section states 5 months.',
-      ]);
+      if (response.compliance_issues_count > 0) {
+        updateStep(2, 'WARNING', `Found ${response.compliance_issues_count} compliance issues.`);
+        setWarnings([`Gatekeeper found ${response.compliance_issues_count} issues that need review.`]);
+      } else {
+        updateStep(2, 'SUCCESS', 'No major compliance issues found.');
+      }
 
-      // 4. Judge starts
-      updateStep(3, 'RUNNING', 'Evaluating fact alignment and calculating final scores...');
-      await new Promise((r) => setTimeout(r, 1500));
-      updateStep(3, 'SUCCESS', 'Scoring complete. Fact checking passed.');
-      setScoreInfo({ score: 0.92, issues: 1 });
-    } catch (err) {
-      updateStep(0, 'ERROR', 'Agent swarm workflow execution failed.');
+      updateStep(3, 'SUCCESS', 'Scoring complete.');
+      setScoreInfo({ score: response.overall_score, issues: response.compliance_issues_count });
+
+    } catch (err: any) {
+      updateStep(0, 'ERROR', err.message || 'Agent swarm workflow execution failed.');
+      updateStep(1, 'ERROR', 'Failed');
+      updateStep(2, 'ERROR', 'Failed');
+      updateStep(3, 'ERROR', 'Failed');
     } finally {
       setIsRunning(false);
     }
