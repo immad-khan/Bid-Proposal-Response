@@ -44,7 +44,7 @@ class LLMClient:
             if not api_key:
                 raise ValueError("GROQ_API_KEY environment variable is not set.")
             self._client = Groq(api_key=api_key)
-            self._model = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+            self._model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
         elif self.provider == "anthropic":
             import anthropic
