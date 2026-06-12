@@ -3,10 +3,11 @@ Test suite for chunking_service — validates hierarchical parent-child
 chunking, contextual prepend, and vector DB preparation.
 """
 
-import pytest
 from services.chunking_service import (
     create_parent_child_chunks,
     split_markdown_by_headers,
+    process_markdown_pipeline,
+    prepare_for_vector_db,
 )
 
 
@@ -68,48 +69,50 @@ class TestSplitMarkdownByHeaders:
 class TestCreateParentChildChunks:
     """Validate hierarchical chunking with parent and child splits."""
 
-    def test_returns_list(self):
-        result = create_parent_child_chunks(SAMPLE_MARKDOWN)
-        assert isinstance(result, list), "Expected list output"
+    def test_returns_parent_and_child_lists(self):
+        sections = split_markdown_by_headers(SAMPLE_MARKDOWN)
+        parents, children = create_parent_child_chunks(sections)
+        assert isinstance(parents, list), "Expected list output for parents"
+        assert isinstance(children, list), "Expected list output for children"
 
-    def test_each_chunk_has_parent_field(self):
-        result = create_parent_child_chunks(SAMPLE_MARKDOWN)
-        for chunk in result:
-            assert "parent" in chunk or "heading_path" in chunk, (
-                "Chunk missing parent reference"
-            )
+    def test_each_child_chunk_has_parent_id(self):
+        sections = split_markdown_by_headers(SAMPLE_MARKDOWN)
+        parents, children = create_parent_child_chunks(sections)
+        for chunk in children:
+            assert chunk.parent_id is not None, "Child chunk missing parent ID"
 
     def test_chunks_contain_text(self):
-        result = create_parent_child_chunks(SAMPLE_MARKDOWN)
-        for chunk in result:
-            text = chunk.get("content", chunk.get("text", ""))
-            # At least some chunks should have text
-            if text:
-                assert len(text) > 10, "Chunk text is suspiciously short"
+        sections = split_markdown_by_headers(SAMPLE_MARKDOWN)
+        parents, children = create_parent_child_chunks(sections)
+        for chunk in parents + children:
+            assert len(chunk.text) > 0, "Chunk text is empty"
 
     def test_empty_input_returns_empty(self):
-        result = create_parent_child_chunks("")
-        assert isinstance(result, list), "Expected list for empty input"
-
-    def test_single_section_input(self):
-        md = "# Only Section\n\nSome content here about requirements."
-        result = create_parent_child_chunks(md)
-        assert len(result) >= 1, "Expected at least 1 chunk from single section"
+        parents, children = create_parent_child_chunks([])
+        assert len(parents) == 0
+        assert len(children) == 0
 
 
-class TestChunkMetadata:
-    """Validate that chunk metadata is correctly propagated."""
+class TestPipelineAndMetadata:
+    """Validate full pipeline and prepared document schemas."""
 
-    def test_chunks_preserve_section_identity(self):
-        result = create_parent_child_chunks(SAMPLE_MARKDOWN)
-        # At least one chunk should reference a known section
-        section_refs = []
-        for chunk in result:
-            path = chunk.get("heading_path", [])
-            if isinstance(path, list):
-                section_refs.extend(path)
-            elif isinstance(path, str):
-                section_refs.append(path)
-        assert any("Technical" in ref or "Project" in ref for ref in section_refs if ref), (
-            "No chunks reference known section headings"
-        )
+    def test_pipeline_workflow(self):
+        parents, children = process_markdown_pipeline(SAMPLE_MARKDOWN)
+        assert len(parents) > 0
+        assert len(children) > 0
+
+        # Verify contextual prepend works
+        for child in children:
+            assert child.contextual_prepend != ""
+            assert "Section:" in child.contextual_prepend
+
+        # Verify Qdrant document prep
+        docs = prepare_for_vector_db(children)
+        assert len(docs) == len(children)
+        for doc in docs:
+            assert "id" in doc
+            assert "text_for_embedding" in doc
+            assert "original_text" in doc
+            assert "metadata" in doc
+            assert doc["metadata"]["parent_id"] is not None
+            assert "section_path" in doc["metadata"]

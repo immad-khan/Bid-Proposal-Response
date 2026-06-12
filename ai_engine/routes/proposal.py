@@ -5,7 +5,7 @@ Proposal Routes — FastAPI endpoints for running proposal generation agent swar
 from fastapi import APIRouter, HTTPException
 from schemas.proposal import ProposalGenerationRequest, ProposalGenerationResponse
 from agents.workflow import proposal_swarm_graph, get_retrieval_service
-from services.chunking_service import create_parent_child_chunks
+from services.chunking_service import process_markdown_pipeline, prepare_for_vector_db
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,30 +23,22 @@ async def generate_proposal(request: ProposalGenerationRequest):
 
         # ── Step 1: Chunk the RFP content into parent-child blocks ──
         logger.info("ProposalRouter: Chunking input RFP text...")
-        chunks = create_parent_child_chunks(request.rfpText)
-        
-        # Format chunks into AgentState's expected 'sections' format
-        # Each parent chunk acts as a section.
-        sections = []
-        for i, parent_chunk in enumerate(chunks):
-            sections.append({
-                "id": f"sec_{i}",
-                "heading_path": [parent_chunk.get("section_heading", f"Section {i+1}")],
-                "content": parent_chunk.get("text_for_embedding", "")
-            })
+        parent_chunks, child_chunks = process_markdown_pipeline(request.rfpText)
+
+        # Format parent chunks into AgentState's expected 'sections' format
+        sections = [
+            {
+                "id": c.id,
+                "heading_path": c.section_path,
+                "content": c.text,
+            }
+            for c in parent_chunks
+        ]
 
         # ── Step 2: Index current chunks into the in-memory BM25 index ──
         retrieval = get_retrieval_service()
         if retrieval.bm25_index:
-            # We map chunk records to BM25 expected dictionary form
-            bm25_docs = []
-            for sec in sections:
-                bm25_docs.append({
-                    "id": sec["id"],
-                    "text_for_embedding": sec["content"],
-                    "original_text": sec["content"],
-                    "metadata": {"section_path": sec["heading_path"][0]}
-                })
+            bm25_docs = prepare_for_vector_db(child_chunks)
             retrieval.bm25_index.index_documents(bm25_docs)
 
         # ── Step 3: Run the Compiled LangGraph Workflow ──
@@ -67,7 +59,7 @@ async def generate_proposal(request: ProposalGenerationRequest):
         # Gather reviews
         reviews = final_state.get("reviews", [])
         judge_review = next((r for r in reviews if r.get("step") == "llm_judge"), {})
-        
+
         draft_previews = {
             req_id: text[:200] + "..." if len(text) > 200 else text
             for req_id, text in final_state.get("drafts", {}).items()

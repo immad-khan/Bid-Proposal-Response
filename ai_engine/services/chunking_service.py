@@ -112,7 +112,7 @@ def create_parent_child_chunks(
         end_page = sec['end_page']
         
         # Approximate token count (English: ~0.75 tokens per word)
-        approx_tokens = len(content.split()) // 0.75
+        approx_tokens = int(len(content.split()) / 0.75)
         
         # Parent chunk = full section
         parent_id = hashlib.md5(f"{heading_path}_{start_page}".encode()).hexdigest()[:12]
@@ -137,7 +137,7 @@ def create_parent_child_chunks(
             child_index = 0
             
             for para in paragraphs:
-                para_tokens = len(para.split()) // 0.75
+                para_tokens = int(len(para.split()) / 0.75)
                 if current_tokens + para_tokens > max_child_tokens and current_text:
                     # create child chunk
                     child_id = f"{parent_id}_chunk_{child_index}"
@@ -155,7 +155,7 @@ def create_parent_child_chunks(
                     child_index += 1
                     # overlap: keep last part of previous chunk (optional)
                     current_text = current_text.split('.')[-2] + '. ' if overlap_tokens > 0 else ""
-                    current_tokens = len(current_text.split()) // 0.75
+                    current_tokens = int(len(current_text.split()) / 0.75)
                 
                 current_text += para + "\n\n"
                 current_tokens += para_tokens
@@ -247,6 +247,36 @@ def prepare_for_vector_db(child_chunks: List[Chunk]) -> List[Dict[str, Any]]:
     return documents
 
 
+def process_markdown_pipeline(
+    markdown_text: str,
+    max_child_tokens: int = 400,
+    overlap_tokens: int = 50,
+    llm_client=None,
+) -> List[Dict[str, Any]]:
+    """
+    High-level convenience function: takes raw markdown and returns
+    documents ready for vector DB insertion.
+
+    Pipeline: split_markdown_by_headers → create_parent_child_chunks
+              → add_contextual_prepend → prepare_for_vector_db
+
+    Args:
+        markdown_text: Raw markdown string from the parser service.
+        max_child_tokens: Maximum tokens per child chunk.
+        overlap_tokens: Token overlap between adjacent child chunks.
+        llm_client: Optional LLM client for contextual prepend generation.
+
+    Returns:
+        List of dicts ready for VectorStore.add_documents().
+    """
+    sections = split_markdown_by_headers(markdown_text)
+    parent_chunks, child_chunks = create_parent_child_chunks(
+        sections, max_child_tokens=max_child_tokens, overlap_tokens=overlap_tokens
+    )
+    child_chunks = add_contextual_prepend(child_chunks, llm_client=llm_client)
+    return parent_chunks, child_chunks
+
+
 # ========== Example usage if run standalone ==========
 if __name__ == "__main__":
     # Sample markdown with page markers (simulated)
@@ -267,10 +297,8 @@ Vendor must be certified.
 ## Budget
 Total cost not to exceed $500k.
 """
-    sections = split_markdown_by_headers(sample_md)
-    parent_chunks, child_chunks = create_parent_child_chunks(sections, max_child_tokens=200)
-    child_chunks = add_contextual_prepend(child_chunks, llm_client=None)  # using fallback
-    
+    parent_chunks, child_chunks = process_markdown_pipeline(sample_md, max_child_tokens=200)
+
     docs_for_vector_db = prepare_for_vector_db(child_chunks)
     
     print(f"Created {len(child_chunks)} child chunks")

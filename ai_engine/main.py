@@ -8,10 +8,29 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# 1. At the top of main.py, import your chunker tool:
-from services.chunking_service import create_parent_child_chunks
+# Core pipeline imports
+from services.chunking_service import process_markdown_pipeline, prepare_for_vector_db
 from services.parser_service import parse_azure_blob_hybrid
 from routes import parsing_router, compliance_router, proposal_router
+
+# Lazy imports for heavy AI services (loaded on first job, not at startup)
+_vector_store = None
+_bm25_index = None
+
+def _get_vector_store():
+    global _vector_store
+    if _vector_store is None:
+        from services.vector_store import VectorStore
+        _vector_store = VectorStore()
+    return _vector_store
+
+def _get_bm25_index():
+    global _bm25_index
+    if _bm25_index is None:
+        from services.bm25_index import BM25Index
+        _bm25_index = BM25Index()
+    return _bm25_index
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,35 +72,81 @@ async def process_rfp_background(job: RfpJob):
         job_store[job.jobId]["status"] = "processing"
         job_store[job.jobId]["updated_at"] = datetime.utcnow().isoformat()
 
-        # ✅ Step 1: Parse PDF using your hybrid parser
+        # ── Step 1: Parse PDF using hybrid parser ──
         logger.info(f"[STEP 1] Running Hybrid Docling + PDFPlumber Extraction...")
         parsed_markdown = await parse_azure_blob_hybrid(job.blobUrl)
         logger.info(f"[STEP 1 DONE] Extracted {len(parsed_markdown)} characters of structural layout.")
 
-        # ✅ Step 1.5: Hierarchical Parent-Child Chunking (US-32)
+        # ── Step 1.5: Hierarchical Parent-Child Chunking ──
         logger.info(f"[STEP 1.5] Slicing layout into hierarchical context trees...")
-        document_hierarchy = create_parent_child_chunks(parsed_markdown)
-        logger.info(f"[STEP 1.5 DONE] Generated {len(document_hierarchy)} structurally isolated Parent Sections.")
+        parent_chunks, child_chunks = process_markdown_pipeline(parsed_markdown)
+        logger.info(f"[STEP 1.5 DONE] Generated {len(parent_chunks)} parent sections, {len(child_chunks)} child chunks.")
 
-        # ✅ Step 2: AI Processing (Ready for Vector Storage & Agents)
-        logger.info(f"[STEP 2] Initializing Multi-Agent Swarm and Vector Mapping...")
-        
-        # This hierarchy tree is exactly what your Qdrant and LangGraph agents will use
-        result = {
-            "parent_sections_count": len(document_hierarchy),
-            "ai_summary": "Ready to prompt Planner Agent.",
-            "raw_hierarchy": document_hierarchy[:2] # Preview snippet for the logs
+        # ── Step 2: Upsert chunks into Qdrant + BM25 ──
+        logger.info(f"[STEP 2] Embedding and indexing {len(child_chunks)} chunks...")
+        collection_name = f"rfp_{job.jobId[:8]}"
+        vector_db_docs = prepare_for_vector_db(child_chunks)
+
+        try:
+            vector_store = _get_vector_store()
+            vector_store.add_documents(collection_name, vector_db_docs)
+            logger.info(f"[STEP 2a] Qdrant upsert complete → collection '{collection_name}'")
+        except Exception as ve:
+            logger.warning(f"[STEP 2a] Qdrant upsert failed (non-fatal): {ve}")
+
+        try:
+            bm25 = _get_bm25_index()
+            bm25.index_documents(vector_db_docs)
+            logger.info(f"[STEP 2b] BM25 index built with {len(vector_db_docs)} documents")
+        except Exception as be:
+            logger.warning(f"[STEP 2b] BM25 indexing failed (non-fatal): {be}")
+
+        # ── Step 3: Execute LangGraph Multi-Agent Swarm ──
+        logger.info(f"[STEP 3] Launching LangGraph swarm workflow...")
+        job_store[job.jobId]["status"] = "running_agents"
+        job_store[job.jobId]["updated_at"] = datetime.utcnow().isoformat()
+
+        from agents.workflow import proposal_swarm_graph
+
+        # Convert Chunk objects to dicts for the agent state
+        sections_for_agents = [
+            {"id": c.id, "heading_path": c.section_path, "content": c.text}
+            for c in parent_chunks
+        ]
+
+        initial_state = {
+            "rfp_text": parsed_markdown,
+            "sections": sections_for_agents,
+            "plan": {},
+            "drafts": {},
+            "reviews": [],
+            "approved": False,
+            "status": "initialized",
         }
-        logger.info(f"[STEP 2 DONE] Multi-agent processing initialization complete.")
 
-        # ✅ Step 3: Mark job as completed
+        final_state = proposal_swarm_graph.invoke(initial_state)
+
+        result = {
+            "parent_sections_count": len(parent_chunks),
+            "collection_name": collection_name,
+            "drafts_generated": len(final_state.get("drafts", {})),
+            "approved": final_state.get("approved", False),
+            "reviews": final_state.get("reviews", []),
+            "status": final_state.get("status", "completed"),
+        }
+        logger.info(
+            f"[STEP 3 DONE] Swarm complete. "
+            f"Drafts: {result['drafts_generated']}, Approved: {result['approved']}"
+        )
+
+        # ── Step 4: Mark job as completed ──
         job_store[job.jobId].update({
             "status": "completed",
             "result": result,
             "updated_at": datetime.utcnow().isoformat(),
             "completed_at": datetime.utcnow().isoformat()
         })
-        logger.info(f"[JOB DONE] {job.jobId} processed through hybrid chunking stack.")
+        logger.info(f"[JOB DONE] {job.jobId} — full pipeline executed.")
 
     except Exception as e:
         logger.error(f"[JOB FAILED] {job.jobId} - Error: {str(e)}")
