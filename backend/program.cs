@@ -29,11 +29,12 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// ✅ Swagger enabled in all environments for testing
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// ✅ Root health check endpoint
+app.MapGet("/", () => new { service = "RFP Backend API", status = "running", swagger = "/swagger" });
 
 // ✅ CORS must be before MapControllers
 app.UseCors("AllowReactApp");
