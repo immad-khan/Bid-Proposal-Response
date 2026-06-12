@@ -11,6 +11,9 @@ class AgentState(TypedDict):
     # Parsed structural layout sections
     sections: List[Dict[str, Any]]
     
+    # Qdrant collection name for this project
+    collection_name: str
+    
     # Actionable generation plan / requirements outline
     plan: Dict[str, Any]
     

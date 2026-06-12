@@ -35,16 +35,25 @@ async def generate_proposal(request: ProposalGenerationRequest):
             for c in parent_chunks
         ]
 
-        # ── Step 2: Index current chunks into the in-memory BM25 index ──
+        # ── Step 2: Index current chunks into Vector DB and BM25 index ──
         retrieval = get_retrieval_service()
+        docs_to_index = prepare_for_vector_db(child_chunks)
+        collection_name = f"rfp_{request.projectId[:8]}" if request.projectId else "rfp_chunks"
+        
+        if retrieval.vector_store:
+            try:
+                retrieval.vector_store.add_documents(collection_name, docs_to_index)
+            except Exception as e:
+                logger.warning(f"Failed to upsert to Qdrant: {e}")
+
         if retrieval.bm25_index:
-            bm25_docs = prepare_for_vector_db(child_chunks)
-            retrieval.bm25_index.index_documents(bm25_docs)
+            retrieval.bm25_index.index_documents(docs_to_index)
 
         # ── Step 3: Run the Compiled LangGraph Workflow ──
         initial_state = {
             "rfp_text": request.rfpText,
             "sections": sections,
+            "collection_name": collection_name,
             "plan": {},
             "drafts": {},
             "reviews": [],

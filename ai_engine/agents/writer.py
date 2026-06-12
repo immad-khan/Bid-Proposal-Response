@@ -90,7 +90,8 @@ class WriterAgent:
             logger.info(f"WriterAgent: Drafting [{req_id}] — {section_name}")
 
             # ── Step 1: Retrieve supporting evidence ──
-            evidence_text = self._retrieve_evidence(requirement_summary)
+            collection_name = state.get("collection_name", "rfp_chunks")
+            evidence_text = self._retrieve_evidence(requirement_summary, collection_name)
 
             if self.llm_client:
                 # ── Step 2: LLM-powered drafting ──
@@ -120,13 +121,13 @@ class WriterAgent:
 
         return {"drafts": new_drafts, "status": f"Drafting completed. {len(new_drafts)} sections written."}
 
-    def _retrieve_evidence(self, query: str) -> str:
+    def _retrieve_evidence(self, query: str, collection_name: str) -> str:
         """Retrieve top evidence chunks from the retrieval service."""
         if not self.retrieval_service:
             return "(No retrieval service configured — evidence not available.)"
 
         try:
-            results = self.retrieval_service.retrieve(query, top_n=5)
+            results = self.retrieval_service.retrieve(query, collection_name=collection_name, top_n=5)
             if not results:
                 return "(No matching evidence found in the knowledge base.)"
 
