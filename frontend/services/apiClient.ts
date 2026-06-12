@@ -3,7 +3,7 @@
  * All frontend components should use this client instead of raw fetch().
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5282';
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -116,6 +116,53 @@ class ApiClient {
     return this.request('/api/proposal/generate', {
       method: 'POST',
       body: { project_id: projectId, rfp_text: rfpText },
+    });
+  }
+
+  // ── Win Probability Dashboard (7.0) ──
+  async getWinProbability(): Promise<any[]> {
+    return this.request('/api/dashboard/win-probability');
+  }
+
+  async getDetailedAnalysis(projectId: string): Promise<any> {
+    return this.request(`/api/dashboard/analysis/${projectId}`);
+  }
+
+  // ── Workspace & Collaboration (8.0) ──
+  async createWorkspace(name: string, description: string, workspaceId?: string): Promise<any> {
+    return this.request('/api/workspace', {
+      method: 'POST',
+      body: { name, description, workspaceId },
+    });
+  }
+
+  async getWorkspace(workspaceId: string): Promise<any> {
+    return this.request(`/api/workspace/${workspaceId}`);
+  }
+
+  async saveDraft(workspaceId: string, content: string, comment: string): Promise<any> {
+    return this.request(`/api/workspace/${workspaceId}/draft`, {
+      method: 'POST',
+      body: { content, comment },
+    });
+  }
+
+  async getVersionHistory(workspaceId: string): Promise<any[]> {
+    return this.request(`/api/workspace/${workspaceId}/versions`);
+  }
+
+  async getVersion(versionId: string): Promise<any> {
+    return this.request(`/api/workspace/version/${versionId}`);
+  }
+
+  async exportProposal(workspaceId: string, format = 'pdf'): Promise<{ downloadUrl: string }> {
+    return this.request(`/api/workspace/${workspaceId}/export?format=${format}`);
+  }
+
+  async inviteMember(workspaceId: string, email: string, role: string): Promise<{ message: string }> {
+    return this.request(`/api/workspace/${workspaceId}/invite`, {
+      method: 'POST',
+      body: { email, role },
     });
   }
 

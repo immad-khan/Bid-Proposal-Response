@@ -37,3 +37,8 @@ Thumbs.db
 *.publishsettings
 ServiceConfiguration.*.cscfg
 local.settings.json
+
+# Local Node Runtime
+node-v22.11.0-linux-x64/
+node-v22.11.0-linux-x64.tar.xz
+node-fresh.tar.xz
