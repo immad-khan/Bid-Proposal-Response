@@ -53,32 +53,32 @@ builder.Services.AddScoped<IDocumentGenerator, DocumentGenerator>();
 // ✅ HttpClient (built into .NET 10, no extra package needed)
 builder.Services.AddHttpClient();
 
-// ✅ CORS — specific per-origin policies for diagnostics
-var allowedOrigins = (
-    Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")
-    ?? "http://localhost:3000,https://localhost:3000"
-).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+// ✅ CORS — reads ALLOWED_ORIGINS from env; falls back to open if not set
+var allowedOriginsEnv = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS");
+var hasExplicitOrigins = !string.IsNullOrWhiteSpace(allowedOriginsEnv);
+var allowedOrigins = hasExplicitOrigins
+    ? allowedOriginsEnv!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    : Array.Empty<string>();
 
 builder.Services.AddCors(options =>
 {
-    // Policy for the React/Next.js Frontend
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
-    });
-
-    // Open policy ONLY for internal service-to-service calls (Python AI Engine → .NET)
-    options.AddPolicy("AllowInternalServices", policy =>
-    {
-        policy.WithOrigins(
-                "http://ai_engine:8000",
-                "http://localhost:8000"
-              )
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        if (hasExplicitOrigins)
+        {
+            // Production: restrict to known frontend origins
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
+        else
+        {
+            // Dev / Azure before ALLOWED_ORIGINS is set: open CORS so app stays up
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
     });
 });
 
