@@ -23,6 +23,7 @@ services:
       - OPENAI_MODEL=${OPENAI_MODEL}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
       - neo4j
       - redis
@@ -50,6 +51,7 @@ services:
       - JWT__KEY=${JWT__KEY}
       - JWT__ISSUER=${JWT__ISSUER}
       - JWT__AUDIENCE=${JWT__AUDIENCE}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
       - ai_engine
       - redis

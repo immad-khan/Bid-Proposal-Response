@@ -53,12 +53,30 @@ builder.Services.AddScoped<IDocumentGenerator, DocumentGenerator>();
 // ✅ HttpClient (built into .NET 10, no extra package needed)
 builder.Services.AddHttpClient();
 
-// ✅ CORS for React/Vercel
+// ✅ CORS — specific per-origin policies for diagnostics
+var allowedOrigins = (
+    Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")
+    ?? "http://localhost:3000,https://localhost:3000"
+).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp", policy =>
+    // Policy for the React/Next.js Frontend
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+
+    // Open policy ONLY for internal service-to-service calls (Python AI Engine → .NET)
+    options.AddPolicy("AllowInternalServices", policy =>
+    {
+        policy.WithOrigins(
+                "http://ai_engine:8000",
+                "http://localhost:8000"
+              )
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -90,8 +108,16 @@ app.UseSwaggerUI();
 // ✅ Root health check endpoint
 app.MapGet("/", () => new { service = "RFP Backend API", status = "running", swagger = "/swagger" });
 
+// ✅ CORS diagnostic endpoint — call this from browser to verify CORS is working
+app.MapGet("/cors-check", (HttpContext ctx) => new {
+    status = "cors_ok",
+    service = "net-api",
+    origin = ctx.Request.Headers["Origin"].ToString(),
+    timestamp = DateTime.UtcNow.ToString("o")
+}).RequireCors("AllowFrontend");
+
 // ✅ CORS must be before Authentication/Authorization
-app.UseCors("AllowReactApp");
+app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();

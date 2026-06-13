@@ -1,4 +1,6 @@
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+import os
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Optional
 import logging
@@ -48,6 +50,31 @@ app = FastAPI(
     description="Processes RFP documents from Azure Blob Storage",
     version="1.0.0"
 )
+
+# ✅ CORS — allow the .NET backend and frontend to call this service
+_allowed_origins_raw = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,https://localhost:3000,http://localhost:5000,http://net-api:8080"
+)
+_allowed_origins = [o.strip() for o in _allowed_origins_raw.split(",") if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ✅ CORS diagnostic endpoint — call this to verify the Python engine is reachable
+@app.get("/cors-check")
+async def cors_check(request: Request):
+    return {
+        "status": "cors_ok",
+        "service": "ai-engine",
+        "origin": request.headers.get("origin", "no-origin-header"),
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
 # Register sub-routers
 app.include_router(parsing_router)
