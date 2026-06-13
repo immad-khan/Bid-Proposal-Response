@@ -8,6 +8,20 @@ using BackendNet.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ✅ Load .env file for local 'dotnet run' execution
+var rootDir = Directory.GetParent(Directory.GetCurrentDirectory())?.FullName;
+var envPath = Path.Combine(rootDir ?? "", ".env");
+if (File.Exists(envPath))
+{
+    foreach (var line in File.ReadAllLines(envPath))
+    {
+        var parts = line.Split('=', 2, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 2 && !line.TrimStart().StartsWith("#"))
+        {
+            Environment.SetEnvironmentVariable(parts[0].Trim(), parts[1].Trim());
+        }
+    }
+}
 // ✅ Add DbContext with SQLite
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=rfp.db"));
