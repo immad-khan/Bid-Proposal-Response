@@ -1,8 +1,9 @@
 services:
   ai_engine:
-    build:
-      context: ./ai_engine
-      dockerfile: Dockerfile
+    image: rfppilotregistry.azurecr.io/rfp-ai-engine:latest
+    # build:
+    #   context: ./ai_engine
+    #   dockerfile: Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -32,9 +33,10 @@ services:
       - rfp-network
 
   net-api:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: rfppilotregistry.azurecr.io/rfp-backend:latest
+    # build:
+    #   context: ./backend
+    #   dockerfile: Dockerfile
     ports:
       - "5000:8080"
     environment:
