@@ -27,7 +27,21 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col relative">
+        {/* Spline 3D Background */}
+        <div className="fixed inset-0 -z-10 w-full h-full overflow-hidden pointer-events-none">
+          <iframe 
+            src="https://my.spline.design/particles-ALVTe7DBbXbMfJCLJv0lda5a/" 
+            className="w-full h-full border-none"
+            title="Spline Background"
+          ></iframe>
+        </div>
+        
+        {/* Main App Content */}
+        <div className="relative z-0 flex-1 flex flex-col">
+          {children}
+        </div>
+      </body>
     </html>
   );
 }
